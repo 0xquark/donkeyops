@@ -953,6 +953,13 @@ index abc123..def456 100644
           pulls: "read",
         },
       })
+      .get("/repos/donkeylover/donkey-ops-testing/pulls/1")
+      .reply(200, {
+        number: 1,
+        title: "Test PR",
+        head: { sha: "abc123" },
+        base: { sha: "def456" }
+      })
       .post("/repos/donkeylover/donkey-ops-testing/issues/1/comments", (body: any) => {
         expect(body.body).toContain("❌ **Error:** Please provide a question");
         return true;
