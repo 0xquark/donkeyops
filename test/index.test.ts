@@ -52,7 +52,7 @@ describe("My Probot app", () => {
       {
         sha: "def5678",
         commit: {
-          message: "Core: fix bug #123"
+          message: "feat(Core & Internals): fix bug #123"
         }
       }
     ];
@@ -93,13 +93,13 @@ describe("My Probot app", () => {
       {
         sha: "abc1234",
         commit: {
-          message: "Core: fix bug #123"
+          message: "feat(Core & Internals): fix bug #123"
         }
       },
       {
         sha: "def5678",
         commit: {
-          message: "Testing: add unit tests #456"
+          message: "test(Testing): add unit tests #456"
         }
       }
     ];
@@ -130,7 +130,7 @@ describe("My Probot app", () => {
       {
         sha: "abc1234",
         commit: {
-          message: "InvalidComponent: fix bug #123"
+          message: "feat(InvalidComponent): fix bug #123"
         }
       }
     ];
@@ -165,29 +165,41 @@ describe("My Probot app", () => {
     expect(mock.pendingMocks()).toStrictEqual([]);
   });
 
-  test("uses repo-specific config from .donkeyops.yml for valid components", async () => {
+  test("uses repo-specific config from .donkeyops.yml for valid types and components", async () => {
     // Mock .donkeyops.yml content (base64 encoded)
-    const config = {
-      conventional_commits: {
-        valid_components: ["CustomComponent"],
-        commit_format: "<component>: <change_message> #<issue_number>"
-      }
-    };
     const configYaml = Buffer.from(
-      `conventional_commits:\n  valid_components:\n    - CustomComponent\n  commit_format: \"<component>: <change_message> #<issue_number>\"\n`
+      `conventional_commits:\n  type_enum:\n    - custom\n    - fix\n  valid_components:\n    - CustomComponent\n    - Core\n  commit_format: \"<type>(<component>): <short_message> #<issue_number>\"\n  enabled: true\n`
     ).toString("base64");
 
     const mockCommits = [
       {
         sha: "abc1234",
         commit: {
-          message: "CustomComponent: something cool #42"
+          message: "custom(CustomComponent): something cool #42"
         }
       },
       {
         sha: "def5678",
         commit: {
-          message: "Core: fix bug #123"
+          message: "fix(Core): bug fix #123"
+        }
+      },
+      {
+        sha: "bad0000",
+        commit: {
+          message: "feat(Core): not allowed type #999"
+        }
+      },
+      {
+        sha: "bad1111",
+        commit: {
+          message: "custom(Unknown): not allowed component #888"
+        }
+      },
+      {
+        sha: "bad2222",
+        commit: {
+          message: "invalid commit message"
         }
       }
     ];
@@ -213,11 +225,16 @@ describe("My Probot app", () => {
       // Mock the commits list API call
       .get("/repos/hiimbex/testing-things/pulls/1/commits")
       .reply(200, mockCommits)
-      // Test that a warning comment is posted for the invalid component
+      // Test that a warning comment is posted for the invalid commits
       .post("/repos/hiimbex/testing-things/issues/1/comments", (body: any) => {
+        expect(body.body).toContain("Conventional Commit Check");
+        expect(body.body).toContain("Found 3 commit(s) that don't follow the conventional commit format");
+        expect(body.body).toContain("feat(Core): not allowed type #999"); // invalid type
+        expect(body.body).toContain("custom(Unknown): not allowed component #888"); // invalid component
+        expect(body.body).toContain("invalid commit message"); // invalid format
+        expect(body.body).toContain("Invalid Type Warning");
         expect(body.body).toContain("Invalid Component Warning");
-        expect(body.body).toContain("Core");
-        expect(body.body).toContain("CustomComponent");
+        expect(body.body).toContain("Conventional Commit Warning");
         return true;
       })
       .reply(200);
