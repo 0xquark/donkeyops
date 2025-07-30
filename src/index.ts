@@ -36,7 +36,8 @@ const DEFAULT_VALID_COMPONENTS = [
   "Feature",
   "Enhancement",
   "Core & Internals",
-  "Refactoring"
+  "Refactoring",
+  "Docs"
 ];
 
 const DEFAULT_COMMIT_FORMAT = "<type>(<component>): <short_message> #<issue_number>";
@@ -49,12 +50,14 @@ interface DonkeyOpsConfig {
     commit_format?: string;
     enabled?: boolean;
   };
+  pr_labeling?: {
+    enabled?: boolean;
+  };
 }
 
 interface CommitValidationResult {
   isValid: boolean;
   warning?: string;
-  suggestion?: string;
 }
 
 async function getDonkeyOpsConfig(context: any): Promise<DonkeyOpsConfig> {
@@ -88,12 +91,10 @@ function validateCommitMessage(
   const match = trimmedMessage.match(conventionalCommitRegex);
 
   if (!match) {
-    const suggestion = `Please format your commit message as: "${commitFormat}"`;
-    const warning = `⚠️ **Conventional Commit Warning**\n\nThis commit doesn't follow the conventional commit format.\n\n**Expected format:** \`${commitFormat}\`\n\n**Valid types:** ${typeEnum.join(', ')}\n**Valid components:** ${validComponents.join(', ')}\n\n**Suggestion:** ${suggestion}\n\nFor more information, see: https://rucio.github.io/documentation/contributing/`;
+    const warning = `⚠️ **Conventional Commit Warning**\n\nThis commit doesn't follow the conventional commit format.\n\n**Expected format:** \`${commitFormat}\`\n\n**Valid types:** ${typeEnum.join(', ')}\n**Valid components:** ${validComponents.join(', ')}\n\nFor more information, see: https://rucio.github.io/documentation/contributing/`;
     return {
       isValid: false,
-      warning,
-      suggestion
+      warning
     };
   }
 
@@ -104,12 +105,10 @@ function validateCommitMessage(
     validType => validType.toLowerCase() === type.toLowerCase()
   );
   if (!isValidType) {
-    const suggestion = `Please use one of the valid types: ${typeEnum.join(', ')}`;
-    const warning = `⚠️ **Invalid Type Warning**\n\nType "${type}" is not recognized.\n\n**Valid types:** ${typeEnum.join(', ')}\n\n**Suggestion:** ${suggestion}\n\nFor more information, see: https://rucio.github.io/documentation/contributing/`;
+    const warning = `⚠️ **Invalid Type Warning**\n\nType \"${type}\" is not recognized.\n\n**Valid types:** ${typeEnum.join(', ')}\n\nFor more information, see: https://rucio.github.io/documentation/contributing/`;
     return {
       isValid: false,
-      warning,
-      suggestion
+      warning
     };
   }
 
@@ -118,22 +117,71 @@ function validateCommitMessage(
     validComponent => validComponent.toLowerCase() === component.toLowerCase()
   );
   if (!isValidComponent) {
-    const suggestion = `Please use one of the valid components: ${validComponents.join(', ')}`;
-    const warning = `⚠️ **Invalid Component Warning**\n\nComponent "${component}" is not recognized.\n\n**Valid components:** ${validComponents.join(', ')}\n\n**Suggestion:** ${suggestion}\n\nFor more information, see: https://rucio.github.io/documentation/contributing/`;
+    const warning = `⚠️ **Invalid Component Warning**\n\nComponent \"${component}\" is not recognized.\n\n**Valid types:** ${typeEnum.join(', ')}\n**Valid components:** ${validComponents.join(', ')}\n\nFor more information, see: https://rucio.github.io/documentation/contributing/`;
     return {
       isValid: false,
-      warning,
-      suggestion
+      warning
     };
   }
 
   return { isValid: true };
 }
 
+function detectLabelsFromTitle(title: string, validComponents: string[]): string[] {
+  const detectedLabels: string[] = [];
+  const titleLower = title.toLowerCase();
+
+  // Check for component matches in the title
+  for (const component of validComponents) {
+    const componentLower = component.toLowerCase();
+    
+    // Check if the component name appears in the title
+    if (titleLower.includes(componentLower)) {
+      detectedLabels.push(component);
+    }
+  }
+
+  return detectedLabels;
+}
+
+async function applyLabelsToPR(context: any, labels: string[]): Promise<void> {
+  if (labels.length === 0) return;
+
+  try {
+    const { pull_request, repository } = context.payload;
+    
+    // Get current labels to avoid duplicates
+    const { data: currentLabels } = await context.octokit.issues.listLabelsOnIssue({
+      owner: repository.owner.login,
+      repo: repository.name,
+      issue_number: pull_request.number,
+    });
+
+    const currentLabelNames = currentLabels.map((label: any) => label.name);
+    const newLabels = labels.filter(label => !currentLabelNames.includes(label));
+
+    if (newLabels.length > 0) {
+      await context.octokit.issues.addLabels({
+        owner: repository.owner.login,
+        repo: repository.name,
+        issue_number: pull_request.number,
+        labels: newLabels,
+      });
+    }
+  } catch (error) {
+    console.error('Error applying labels to PR:', error);
+  }
+}
+
 export default (app: Probot) => {
   // Listen to pull request events to check commit messages
   app.on(["pull_request.opened", "pull_request.synchronize"], async (context) => {
     await checkCommitsInPR(context);
+  });
+
+  // Listen to pull request events for automatic labeling
+  app.on(["pull_request.opened", "pull_request.edited"], async (context) => {
+    await autoLabelPR(context);
   });
 
   async function checkCommitsInPR(context: any) {
@@ -195,5 +243,63 @@ export default (app: Probot) => {
     } catch (error) {
       console.error('Error checking commits:', error);
     }
+  }
+
+  async function autoLabelPR(context: any) {
+    const { pull_request, repository } = context.payload;
+
+    // Load config from repo (if present)
+    const config = await getDonkeyOpsConfig(context);
+    const prLabelingEnabled = config.pr_labeling?.enabled !== false; // default true
+
+    if (!prLabelingEnabled) {
+      return; // skip labeling if disabled
+    }
+
+    const validComponents = config.conventional_commits?.valid_components || DEFAULT_VALID_COMPONENTS;
+    
+    // Detect labels from PR title
+    let detectedLabels = detectLabelsFromTitle(pull_request.title, validComponents);
+    
+    // If no labels found in title, check commits for valid components
+    if (detectedLabels.length === 0) {
+      try {
+        const { data: commits } = await context.octokit.pulls.listCommits({
+          owner: repository.owner.login,
+          repo: repository.name,
+          pull_number: pull_request.number,
+        });
+
+        // Extract components from conventional commit messages
+        const commitComponents = new Set<string>();
+        for (const commit of commits) {
+          const conventionalCommitRegex = /^([a-zA-Z\-]+)\(([^)]+)\):\s+(.+?)\s+#(\d+)$/i;
+          const match = commit.commit.message.match(conventionalCommitRegex);
+          if (match) {
+            const [, , component] = match;
+            // Check if the component is valid (case insensitive)
+            const isValidComponent = validComponents.some(
+              validComponent => validComponent.toLowerCase() === component.toLowerCase()
+            );
+            if (isValidComponent) {
+              // Find the exact case from validComponents
+              const exactComponent = validComponents.find(
+                validComponent => validComponent.toLowerCase() === component.toLowerCase()
+              );
+              if (exactComponent) {
+                commitComponents.add(exactComponent);
+              }
+            }
+          }
+        }
+        
+        detectedLabels = Array.from(commitComponents);
+      } catch (error) {
+        console.error('Error checking commits for components:', error);
+      }
+    }
+    
+    // Apply labels to PR
+    await applyLabelsToPR(context, detectedLabels);
   }
 };
