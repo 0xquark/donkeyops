@@ -4,13 +4,13 @@
     "number": 1,
     "title": "Test PR",
     "user": {
-      "login": "hiimbex"
+      "login": "donkeylover"
     }
   },
   "repository": {
-    "name": "testing-things",
+    "name": "donkey-ops-testing",
     "owner": {
-      "login": "hiimbex"
+      "login": "donkeylover"
     }
   },
   "installation": {

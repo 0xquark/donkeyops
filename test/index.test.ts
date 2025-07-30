@@ -69,11 +69,11 @@ describe("My Probot app", () => {
       })
 
       // Mock the commits list API call
-      .get("/repos/hiimbex/testing-things/pulls/1/commits")
+      .get("/repos/donkeylover/donkey-ops-testing/pulls/1/commits")
       .reply(200, mockCommits)
 
       // Test that a warning comment is posted
-      .post("/repos/hiimbex/testing-things/issues/1/comments", (body: any) => {
+      .post("/repos/donkeylover/donkey-ops-testing/issues/1/comments", (body: any) => {
         expect(body.body).toContain("Conventional Commit Check");
         expect(body.body).toContain("Found 1 commit(s) that don't follow the conventional commit format");
         expect(body.body).toContain("invalid commit message");
@@ -115,8 +115,10 @@ describe("My Probot app", () => {
         },
       })
 
-      // Mock the commits list API call
-      .get("/repos/hiimbex/testing-things/pulls/1/commits")
+      // Mock the commits list API call (called twice - once for conventional commits, once for PR labeling)
+      .get("/repos/donkeylover/donkey-ops-testing/pulls/1/commits")
+      .reply(200, mockCommits)
+      .get("/repos/donkeylover/donkey-ops-testing/pulls/1/commits")
       .reply(200, mockCommits);
 
     // Receive a webhook event
@@ -147,11 +149,11 @@ describe("My Probot app", () => {
       })
 
       // Mock the commits list API call
-      .get("/repos/hiimbex/testing-things/pulls/1/commits")
+      .get("/repos/donkeylover/donkey-ops-testing/pulls/1/commits")
       .reply(200, mockCommits)
 
       // Test that a warning comment is posted
-      .post("/repos/hiimbex/testing-things/issues/1/comments", (body: any) => {
+      .post("/repos/donkeylover/donkey-ops-testing/issues/1/comments", (body: any) => {
         expect(body.body).toContain("Invalid Component Warning");
         expect(body.body).toContain("InvalidComponent");
         expect(body.body).toContain("Valid components:");
@@ -216,17 +218,17 @@ describe("My Probot app", () => {
         },
       })
       // Mock the config file fetch
-      .get("/repos/hiimbex/testing-things/contents/.donkeyops.yml")
+      .get("/repos/donkeylover/donkey-ops-testing/contents/.donkeyops.yml")
       .query(true)
       .reply(200, {
         content: configYaml,
         encoding: "base64"
       })
       // Mock the commits list API call
-      .get("/repos/hiimbex/testing-things/pulls/1/commits")
+      .get("/repos/donkeylover/donkey-ops-testing/pulls/1/commits")
       .reply(200, mockCommits)
       // Test that a warning comment is posted for the invalid commits
-      .post("/repos/hiimbex/testing-things/issues/1/comments", (body: any) => {
+      .post("/repos/donkeylover/donkey-ops-testing/issues/1/comments", (body: any) => {
         expect(body.body).toContain("Conventional Commit Check");
         expect(body.body).toContain("Found 3 commit(s) that don't follow the conventional commit format");
         expect(body.body).toContain("feat(Core): not allowed type #999"); // invalid type
@@ -267,13 +269,13 @@ describe("My Probot app", () => {
         },
       })
       // Mock the commits list API call
-      .get("/repos/hiimbex/testing-things/pulls/1/commits")
+      .get("/repos/donkeylover/donkey-ops-testing/pulls/1/commits")
       .reply(200, mockCommits)
       // Mock getting current labels (empty)
-      .get("/repos/hiimbex/testing-things/issues/1/labels")
+      .get("/repos/donkeylover/donkey-ops-testing/issues/1/labels")
       .reply(200, [])
       // Mock adding labels
-      .post("/repos/hiimbex/testing-things/issues/1/labels", (body: any) => {
+      .post("/repos/donkeylover/donkey-ops-testing/issues/1/labels", (body: any) => {
         expect(body.labels).toContain("Core & Internals");
         return true;
       })
@@ -328,15 +330,15 @@ describe("My Probot app", () => {
         },
       })
       // Mock the commits list API call (for both commit validation and PR labeling)
-      .get("/repos/hiimbex/testing-things/pulls/1/commits")
+      .get("/repos/donkeylover/donkey-ops-testing/pulls/1/commits")
       .reply(200, mockCommits)
-      .get("/repos/hiimbex/testing-things/pulls/1/commits")
+      .get("/repos/donkeylover/donkey-ops-testing/pulls/1/commits")
       .reply(200, mockCommits)
       // Mock getting current labels (empty)
-      .get("/repos/hiimbex/testing-things/issues/1/labels")
+      .get("/repos/donkeylover/donkey-ops-testing/issues/1/labels")
       .reply(200, [])
       // Mock adding labels
-      .post("/repos/hiimbex/testing-things/issues/1/labels", (body: any) => {
+      .post("/repos/donkeylover/donkey-ops-testing/issues/1/labels", (body: any) => {
         expect(body.labels).toContain("Core");
         expect(body.labels).toContain("Testing");
         return true;
@@ -366,9 +368,9 @@ describe("My Probot app", () => {
         body: "/donkeyops label Core"
       },
       repository: {
-        name: "testing-things",
+        name: "donkey-ops-testing",
         owner: {
-          login: "hiimbex"
+          login: "donkeylover"
         }
       },
       installation: {
@@ -384,7 +386,7 @@ describe("My Probot app", () => {
           issues: "write",
         },
       })
-      .post("/repos/hiimbex/testing-things/issues/1/labels", (body: any) => {
+      .post("/repos/donkeylover/donkey-ops-testing/issues/1/labels", (body: any) => {
         expect(body.labels).toContain("Core");
         return true;
       })
@@ -403,9 +405,9 @@ describe("My Probot app", () => {
         body: "/donkeyops unlabel Core"
       },
       repository: {
-        name: "testing-things",
+        name: "donkey-ops-testing",
         owner: {
-          login: "hiimbex"
+          login: "donkeylover"
         }
       },
       installation: {
@@ -421,7 +423,7 @@ describe("My Probot app", () => {
           issues: "write",
         },
       })
-      .delete("/repos/hiimbex/testing-things/issues/1/labels/Core")
+      .delete("/repos/donkeylover/donkey-ops-testing/issues/1/labels/Core")
       .reply(200);
 
     await probot.receive({ name: "issue_comment", payload: commentPayload });
@@ -437,9 +439,9 @@ describe("My Probot app", () => {
         body: "/donkeyops close"
       },
       repository: {
-        name: "testing-things",
+        name: "donkey-ops-testing",
         owner: {
-          login: "hiimbex"
+          login: "donkeylover"
         }
       },
       installation: {
@@ -455,7 +457,7 @@ describe("My Probot app", () => {
           issues: "write",
         },
       })
-      .patch("/repos/hiimbex/testing-things/issues/1", (body: any) => {
+      .patch("/repos/donkeylover/donkey-ops-testing/issues/1", (body: any) => {
         expect(body.state).toBe("closed");
         return true;
       })
@@ -474,9 +476,9 @@ describe("My Probot app", () => {
         body: "/donkeyops assign username"
       },
       repository: {
-        name: "testing-things",
+        name: "donkey-ops-testing",
         owner: {
-          login: "hiimbex"
+          login: "donkeylover"
         }
       },
       installation: {
@@ -492,7 +494,7 @@ describe("My Probot app", () => {
           issues: "write",
         },
       })
-      .post("/repos/hiimbex/testing-things/issues/1/assignees", (body: any) => {
+      .post("/repos/donkeylover/donkey-ops-testing/issues/1/assignees", (body: any) => {
         expect(body.assignees).toContain("username");
         return true;
       })
@@ -511,9 +513,9 @@ describe("My Probot app", () => {
         body: "/donkeyops approve"
       },
       repository: {
-        name: "testing-things",
+        name: "donkey-ops-testing",
         owner: {
-          login: "hiimbex"
+          login: "donkeylover"
         }
       },
       installation: {
@@ -530,7 +532,7 @@ describe("My Probot app", () => {
           pulls: "write",
         },
       })
-      .post("/repos/hiimbex/testing-things/pulls/1/reviews", (body: any) => {
+      .post("/repos/donkeylover/donkey-ops-testing/pulls/1/reviews", (body: any) => {
         expect(body.event).toBe("APPROVE");
         expect(body.body).toBe("Approved via /donkeyops approve command");
         return true;
@@ -550,9 +552,9 @@ describe("My Probot app", () => {
         body: "/donkeyops unknown"
       },
       repository: {
-        name: "testing-things",
+        name: "donkey-ops-testing",
         owner: {
-          login: "hiimbex"
+          login: "donkeylover"
         }
       },
       installation: {
@@ -568,7 +570,7 @@ describe("My Probot app", () => {
           issues: "write",
         },
       })
-      .post("/repos/hiimbex/testing-things/issues/1/comments", (body: any) => {
+      .post("/repos/donkeylover/donkey-ops-testing/issues/1/comments", (body: any) => {
         expect(body.body).toContain("❌ **Unknown command:** `unknown`");
         expect(body.body).toContain("Available commands:");
         return true;
@@ -588,9 +590,9 @@ describe("My Probot app", () => {
         body: "/donkeyops unassign username"
       },
       repository: {
-        name: "testing-things",
+        name: "donkey-ops-testing",
         owner: {
-          login: "hiimbex"
+          login: "donkeylover"
         }
       },
       installation: {
@@ -606,7 +608,7 @@ describe("My Probot app", () => {
           issues: "write",
         },
       })
-      .delete("/repos/hiimbex/testing-things/issues/1/assignees", (body: any) => {
+      .delete("/repos/donkeylover/donkey-ops-testing/issues/1/assignees", (body: any) => {
         expect(body.assignees).toContain("username");
         return true;
       })

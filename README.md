@@ -2,8 +2,8 @@
 
 > A GitHub App built with [Probot](https://github.com/probot/probot) framework for managing PRs and Issues with conventional commits, automatic labeling, and slash commands
 
-[![Test](https://github.com/rucio/donkeyops/actions/workflows/test.yml/badge.svg)](https://github.com/rucio/donkeyops/actions/workflows/test.yml)
-[![Lint](https://github.com/rucio/donkeyops/actions/workflows/lint.yml/badge.svg)](https://github.com/rucio/donkeyops/actions/workflows/lint.yml)
+[![Test](https://github.com/0xquark/donkeyops/actions/workflows/test.yml/badge.svg)](https://github.com/0xquark/donkeyops/actions/workflows/test.yml)
+[![Lint](https://github.com/0xquark/donkeyops/actions/workflows/lint.yml/badge.svg)](https://github.com/0xquark/donkeyops/actions/workflows/lint.yml)
 
 ## Setup
 
