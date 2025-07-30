@@ -71,7 +71,7 @@ async function getDonkeyOpsConfig(context: any): Promise<DonkeyOpsConfig> {
     // GitHub API returns content as base64
     const content = Buffer.from((configFile.data.content || ""), "base64").toString();
     return yaml.load(content) as DonkeyOpsConfig;
-  } catch (e) {
+  } catch {
     // If file not found, return empty config (use defaults)
     return {};
   }
