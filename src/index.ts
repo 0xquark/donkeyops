@@ -282,6 +282,67 @@ Provide a brief, actionable code review:`;
   }
 }
 
+async function validateAndGetPRContext(context: any): Promise<any> {
+  const { issue, repository } = context.payload;
+  
+  try {
+    // Try to get the PR details to confirm it's a PR
+    const { data: pr } = await context.octokit.pulls.get({
+      owner: repository.owner.login,
+      repo: repository.name,
+      pull_number: issue.number,
+    });
+    
+    // If we get here, it's a PR. Create a context with pull_request
+    return {
+      ...context,
+      payload: {
+        ...context.payload,
+        pull_request: pr
+      }
+    };
+  } catch (prError) {
+    // If we can't get PR details, it's probably an issue
+    throw new Error('NOT_A_PR');
+  }
+}
+
+async function performPRSummary(context: any): Promise<string> {
+  try {
+    const { pull_request, repository } = context.payload;
+    
+    const diff = await getPRDiff(context);
+    
+    // Create a prompt for the PR summary
+    const prompt = `Summarize these code changes in a concise way.
+
+Repository: ${repository.owner.login}/${repository.name}
+PR Title: ${pull_request.title}
+PR Number: #${pull_request.number}
+
+Instructions:
+- Provide a brief summary of what changed
+- List the main files modified
+- Highlight key additions, removals, or modifications
+- Be concise and to the point
+- Focus on the "what" not the "why"
+- Use bullet points if helpful
+
+Code changes:
+${diff}
+
+Provide a brief summary of the changes:`;
+
+    // Call Codellama
+    const summary = await callCodellama(prompt);
+    
+    return summary;
+  } catch (error) {
+    console.error('Error performing PR summary:', error);
+    throw error;
+  }
+}
+
 function parseSlashCommand(body: string): SlashCommand | null {
   
   if (!body || body.trim() === '') {
@@ -424,48 +485,58 @@ async function handleSlashCommands(context: any): Promise<void> {
 
       case 'review': {
         try {
-          // Check if this is a PR by trying to get PR details
-          const { issue, repository } = context.payload;
+          const prContext = await validateAndGetPRContext(context);
           
-          try {
-            // Try to get the PR details to confirm it's a PR
-            const { data: pr } = await context.octokit.pulls.get({
-              owner: repository.owner.login,
-              repo: repository.name,
-              pull_number: issue.number,
-            });
-            
-            // If we get here, it's a PR. Create a context with pull_request for the review
-            const prContext = {
-              ...context,
-              payload: {
-                ...context.payload,
-                pull_request: pr
-              }
-            };
-            
-            // Perform the code review
-            const review = await performCodeReview(prContext);
-            
-            // Post the review as a comment
-            await context.octokit.issues.createComment({
-              ...context.issue(),
-              body: `## 🤖 Code Review by DonkeyOps Bot\n\n${review}`
-            });
-          } catch (prError) {
-            // If we can't get PR details, it's probably an issue
+          // Perform the code review
+          const review = await performCodeReview(prContext);
+          
+          // Post the review as a comment
+          await context.octokit.issues.createComment({
+            ...context.issue(),
+            body: `## 🤖 Code Review by DonkeyOps Bot\n\n${review}`
+          });
+        } catch (error) {
+          if (error instanceof Error && error.message === 'NOT_A_PR') {
             await context.octokit.issues.createComment({
               ...context.issue(),
               body: '❌ **Error:** Code review is only available for pull requests, not issues.'
             });
-            return;
+          } else {
+            console.error('Error performing code review:', error);
+            await context.octokit.issues.createComment({
+              ...context.issue(),
+              body: '❌ **Error:** Failed to perform code review. Please check if the Qwen2.5-coder service is running properly.'
+            });
           }
-        } catch (error) {
-          console.error('Error performing code review:', error);
+        }
+        break;
+      }
+
+      case 'summary': {
+        try {
+          const prContext = await validateAndGetPRContext(context);
+          
+          // Perform the PR summary
+          const summary = await performPRSummary(prContext);
+          
+          // Post the summary as a comment
           await context.octokit.issues.createComment({
             ...context.issue(),
-            body: '❌ **Error:** Failed to perform code review. Please check if the Qwen2.5-coder service is running locally on port 11434.'
+            body: `## 📋 PR Summary\n\n${summary}`
           });
+        } catch (error) {
+          if (error instanceof Error && error.message === 'NOT_A_PR') {
+            await context.octokit.issues.createComment({
+              ...context.issue(),
+              body: '❌ **Error:** PR summary is only available for pull requests, not issues.'
+            });
+          } else {
+            console.error('Error performing PR summary:', error);
+            await context.octokit.issues.createComment({
+              ...context.issue(),
+              body: '❌ **Error:** Failed to generate PR summary. Please check if the Qwen2.5-coder service is running properly.'
+            });
+          }
         }
         break;
       }
@@ -473,7 +544,7 @@ async function handleSlashCommands(context: any): Promise<void> {
       default:
         await context.octokit.issues.createComment({
           ...context.issue(),
-          body: `❌ **Unknown command:** \`${command.command}\`\n\n**Available commands:**\n- \`/donkeyops label <label>\` - Add a label\n- \`/donkeyops unlabel <label>\` - Remove a label\n- \`/donkeyops close\` - Close issue/PR\n- \`/donkeyops assign <reviewer>\` - Assign reviewer\n- \`/donkeyops unassign <reviewer>\` - Remove reviewer\n- \`/donkeyops approve\` - Approve PR\n- \`/donkeyops review\` - Perform AI code review`
+          body: `❌ **Unknown command:** \`${command.command}\`\n\n**Available commands:**\n- \`/donkeyops label <label>\` - Add a label\n- \`/donkeyops unlabel <label>\` - Remove a label\n- \`/donkeyops close\` - Close issue/PR\n- \`/donkeyops assign <reviewer>\` - Assign reviewer\n- \`/donkeyops unassign <reviewer>\` - Remove reviewer\n- \`/donkeyops approve\` - Approve PR\n- \`/donkeyops review\` - Perform AI code review\n- \`/donkeyops summary\` - Generate PR summary`
         });
         break;
     }
