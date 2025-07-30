@@ -1,6 +1,8 @@
 # donkeyops
 
-> A GitHub App built with [Probot](https://github.com/probot/probot) framework that Hasta la vista, stale PRs
+> A GitHub App built with [Probot](https://github.com/probot/probot) framework for managing PRs and Issues with conventional commits and automatic labeling
+
+[![CI](https://github.com/rucio/donkeyops/actions/workflows/ci.yml/badge.svg)](https://github.com/rucio/donkeyops/actions/workflows/ci.yml)
 
 ## Setup
 

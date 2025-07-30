@@ -14,7 +14,8 @@
   "scripts": {
     "build": "tsc",
     "start": "probot run ./lib/index.js",
-    "test": "vitest"
+    "test": "vitest",
+    "lint": "eslint src/ test/ --ext .ts"
   },
   "dependencies": {
     "js-yaml": "^4.1.0",
@@ -23,6 +24,9 @@
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.38.0",
+    "@typescript-eslint/parser": "^8.38.0",
+    "eslint": "^9.32.0",
     "nock": "^14.0.5",
     "smee-client": "^2.0.0",
     "typescript": "^5.8.3",
