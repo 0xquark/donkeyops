@@ -222,7 +222,7 @@ async function handleSlashCommands(context: any): Promise<void> {
 
   try {
     switch (command.command) {
-      case 'label':
+      case 'label': {
         if (command.args.length === 0) {
           await context.octokit.issues.createComment({
             ...context.issue(),
@@ -239,8 +239,9 @@ async function handleSlashCommands(context: any): Promise<void> {
           labels: [label],
         });
         break;
+      }
 
-      case 'unlabel':
+      case 'unlabel': {
         if (command.args.length === 0) {
           await context.octokit.issues.createComment({
             ...context.issue(),
@@ -257,6 +258,7 @@ async function handleSlashCommands(context: any): Promise<void> {
           name: labelToRemove,
         });
         break;
+      }
 
       case 'close':
         await context.octokit.issues.update({
@@ -267,7 +269,7 @@ async function handleSlashCommands(context: any): Promise<void> {
         });
         break;
 
-      case 'assign':
+      case 'assign': {
         if (command.args.length === 0) {
           await context.octokit.issues.createComment({
             ...context.issue(),
@@ -284,8 +286,9 @@ async function handleSlashCommands(context: any): Promise<void> {
           assignees: [reviewer],
         });
         break;
+      }
 
-      case 'unassign':
+      case 'unassign': {
         if (command.args.length === 0) {
           await context.octokit.issues.createComment({
             ...context.issue(),
@@ -302,6 +305,7 @@ async function handleSlashCommands(context: any): Promise<void> {
           assignees: [reviewerToRemove],
         });
         break;
+      }
 
       case 'approve':
         // Approve the PR using GitHub's review API
