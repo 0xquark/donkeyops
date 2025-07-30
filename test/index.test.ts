@@ -165,6 +165,69 @@ describe("My Probot app", () => {
     expect(mock.pendingMocks()).toStrictEqual([]);
   });
 
+  test("uses repo-specific config from .donkeyops.yml for valid components", async () => {
+    // Mock .donkeyops.yml content (base64 encoded)
+    const config = {
+      conventional_commits: {
+        valid_components: ["CustomComponent"],
+        commit_format: "<component>: <change_message> #<issue_number>"
+      }
+    };
+    const configYaml = Buffer.from(
+      `conventional_commits:\n  valid_components:\n    - CustomComponent\n  commit_format: \"<component>: <change_message> #<issue_number>\"\n`
+    ).toString("base64");
+
+    const mockCommits = [
+      {
+        sha: "abc1234",
+        commit: {
+          message: "CustomComponent: something cool #42"
+        }
+      },
+      {
+        sha: "def5678",
+        commit: {
+          message: "Core: fix bug #123"
+        }
+      }
+    ];
+
+    const mock = nock("https://api.github.com")
+      // Test that we correctly return a test token
+      .post("/app/installations/2/access_tokens")
+      .reply(200, {
+        token: "test",
+        permissions: {
+          issues: "write",
+          pulls: "read",
+          contents: "read"
+        },
+      })
+      // Mock the config file fetch
+      .get("/repos/hiimbex/testing-things/contents/.donkeyops.yml")
+      .query(true)
+      .reply(200, {
+        content: configYaml,
+        encoding: "base64"
+      })
+      // Mock the commits list API call
+      .get("/repos/hiimbex/testing-things/pulls/1/commits")
+      .reply(200, mockCommits)
+      // Test that a warning comment is posted for the invalid component
+      .post("/repos/hiimbex/testing-things/issues/1/comments", (body: any) => {
+        expect(body.body).toContain("Invalid Component Warning");
+        expect(body.body).toContain("Core");
+        expect(body.body).toContain("CustomComponent");
+        return true;
+      })
+      .reply(200);
+
+    // Receive a webhook event
+    await probot.receive({ name: "pull_request", payload: pullRequestPayload });
+
+    expect(mock.pendingMocks()).toStrictEqual([]);
+  });
+
   afterEach(() => {
     nock.cleanAll();
     nock.enableNetConnect();
