@@ -294,6 +294,70 @@ describe("My Probot app", () => {
     expect(mock.pendingMocks()).toStrictEqual([]);
   });
 
+  test("labels PR from commits when title has no valid components", async () => {
+    const mockCommits = [
+      {
+        sha: "abc1234",
+        commit: {
+          message: "feat(Core): add new feature #42"
+        }
+      },
+      {
+        sha: "def5678",
+        commit: {
+          message: "fix(Testing): add unit tests #123"
+        }
+      },
+      {
+        sha: "bad0000",
+        commit: {
+          message: "invalid commit message"
+        }
+      }
+    ];
+
+    const mock = nock("https://api.github.com")
+      // Test that we correctly return a test token
+      .post("/app/installations/2/access_tokens")
+      .reply(200, {
+        token: "test",
+        permissions: {
+          issues: "write",
+          pulls: "read",
+          contents: "read"
+        },
+      })
+      // Mock the commits list API call (for both commit validation and PR labeling)
+      .get("/repos/hiimbex/testing-things/pulls/1/commits")
+      .reply(200, mockCommits)
+      .get("/repos/hiimbex/testing-things/pulls/1/commits")
+      .reply(200, mockCommits)
+      // Mock getting current labels (empty)
+      .get("/repos/hiimbex/testing-things/issues/1/labels")
+      .reply(200, [])
+      // Mock adding labels
+      .post("/repos/hiimbex/testing-things/issues/1/labels", (body: any) => {
+        expect(body.labels).toContain("Core");
+        expect(body.labels).toContain("Testing");
+        return true;
+      })
+      .reply(200);
+
+    // Create a payload with a PR title that has no component keywords
+    const prPayload = {
+      ...pullRequestPayload,
+      pull_request: {
+        ...pullRequestPayload.pull_request,
+        title: "feat: Add new functionality"
+      }
+    };
+
+    // Receive a webhook event
+    await probot.receive({ name: "pull_request", payload: prPayload });
+
+    expect(mock.pendingMocks()).toStrictEqual([]);
+  });
+
   afterEach(() => {
     nock.cleanAll();
     nock.enableNetConnect();

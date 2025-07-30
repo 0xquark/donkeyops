@@ -246,7 +246,7 @@ export default (app: Probot) => {
   }
 
   async function autoLabelPR(context: any) {
-    const { pull_request } = context.payload;
+    const { pull_request, repository } = context.payload;
 
     // Load config from repo (if present)
     const config = await getDonkeyOpsConfig(context);
@@ -259,7 +259,45 @@ export default (app: Probot) => {
     const validComponents = config.conventional_commits?.valid_components || DEFAULT_VALID_COMPONENTS;
     
     // Detect labels from PR title
-    const detectedLabels = detectLabelsFromTitle(pull_request.title, validComponents);
+    let detectedLabels = detectLabelsFromTitle(pull_request.title, validComponents);
+    
+    // If no labels found in title, check commits for valid components
+    if (detectedLabels.length === 0) {
+      try {
+        const { data: commits } = await context.octokit.pulls.listCommits({
+          owner: repository.owner.login,
+          repo: repository.name,
+          pull_number: pull_request.number,
+        });
+
+        // Extract components from conventional commit messages
+        const commitComponents = new Set<string>();
+        for (const commit of commits) {
+          const conventionalCommitRegex = /^([a-zA-Z\-]+)\(([^)]+)\):\s+(.+?)\s+#(\d+)$/i;
+          const match = commit.commit.message.match(conventionalCommitRegex);
+          if (match) {
+            const [, , component] = match;
+            // Check if the component is valid (case insensitive)
+            const isValidComponent = validComponents.some(
+              validComponent => validComponent.toLowerCase() === component.toLowerCase()
+            );
+            if (isValidComponent) {
+              // Find the exact case from validComponents
+              const exactComponent = validComponents.find(
+                validComponent => validComponent.toLowerCase() === component.toLowerCase()
+              );
+              if (exactComponent) {
+                commitComponents.add(exactComponent);
+              }
+            }
+          }
+        }
+        
+        detectedLabels = Array.from(commitComponents);
+      } catch (error) {
+        console.error('Error checking commits for components:', error);
+      }
+    }
     
     // Apply labels to PR
     await applyLabelsToPR(context, detectedLabels);
