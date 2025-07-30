@@ -245,6 +245,55 @@ describe("My Probot app", () => {
     expect(mock.pendingMocks()).toStrictEqual([]);
   });
 
+  test("automatically labels PR based on title keywords", async () => {
+    const mockCommits = [
+      {
+        sha: "abc1234",
+        commit: {
+          message: "feat(Core & Internals): add new feature #42"
+        }
+      }
+    ];
+
+    const mock = nock("https://api.github.com")
+      // Test that we correctly return a test token
+      .post("/app/installations/2/access_tokens")
+      .reply(200, {
+        token: "test",
+        permissions: {
+          issues: "write",
+          pulls: "read",
+          contents: "read"
+        },
+      })
+      // Mock the commits list API call
+      .get("/repos/hiimbex/testing-things/pulls/1/commits")
+      .reply(200, mockCommits)
+      // Mock getting current labels (empty)
+      .get("/repos/hiimbex/testing-things/issues/1/labels")
+      .reply(200, [])
+      // Mock adding labels
+      .post("/repos/hiimbex/testing-things/issues/1/labels", (body: any) => {
+        expect(body.labels).toContain("Core & Internals");
+        return true;
+      })
+      .reply(200);
+
+    // Create a payload with a PR title that contains component keywords
+    const prPayload = {
+      ...pullRequestPayload,
+      pull_request: {
+        ...pullRequestPayload.pull_request,
+        title: "feat: Add new Core & Internals feature"
+      }
+    };
+
+    // Receive a webhook event
+    await probot.receive({ name: "pull_request", payload: prPayload });
+
+    expect(mock.pendingMocks()).toStrictEqual([]);
+  });
+
   afterEach(() => {
     nock.cleanAll();
     nock.enableNetConnect();
