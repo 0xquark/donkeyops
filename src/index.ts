@@ -1,5 +1,6 @@
 import { Probot } from "probot";
 import yaml from "js-yaml";
+import fetch from "node-fetch";
 
 // Default valid types for conventional commits
 const DEFAULT_TYPE_ENUM = [
@@ -63,6 +64,26 @@ interface CommitValidationResult {
 interface SlashCommand {
   command: string;
   args: string[];
+}
+
+interface CodellamaResponse {
+  model: string;
+  created_at: string;
+  response: string;
+  done: boolean;
+  context: number[];
+  total_duration: number;
+  load_duration: number;
+  prompt_eval_count: number;
+  prompt_eval_duration: number;
+  eval_count: number;
+  eval_duration: number;
+}
+
+interface CodellamaRequest {
+  model: string;
+  prompt: string;
+  stream: boolean;
 }
 
 async function getDonkeyOpsConfig(context: any): Promise<DonkeyOpsConfig> {
@@ -175,6 +196,89 @@ async function applyLabelsToPR(context: any, labels: string[]): Promise<void> {
     }
   } catch (error) {
     console.error('Error applying labels to PR:', error);
+  }
+}
+
+async function getPRDiff(context: any): Promise<string> {
+  try {
+    const { pull_request, repository } = context.payload;
+    const { data: diff } = await context.octokit.pulls.get({
+      owner: repository.owner.login,
+      repo: repository.name,
+      pull_number: pull_request.number,
+      mediaType: {
+        format: 'diff'
+      }
+    });
+    return diff as string;
+  } catch (error) {
+    console.error('Error getting PR diff:', error);
+    throw error;
+  }
+}
+
+async function callCodellama(prompt: string): Promise<string> {
+  try {
+    const requestBody: CodellamaRequest = {
+      model: "qwen2.5-coder",
+      prompt: prompt,
+      stream: false
+    };
+
+    const response = await fetch('http://localhost:11434/api/generate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json() as CodellamaResponse;
+    return data.response;
+  } catch (error) {
+    console.error('Error calling Codellama:', error);
+    throw error;
+  }
+}
+
+async function performCodeReview(context: any): Promise<string> {
+  try {
+    const { pull_request, repository } = context.payload;
+    
+    // Get the PR diff
+    const diff = await getPRDiff(context);
+    
+    // Create a prompt for the code review
+    const prompt = `Review this code change and provide a concise GitHub Copilot-style code review.
+
+Repository: ${repository.owner.login}/${repository.name}
+PR Title: ${pull_request.title}
+PR Number: #${pull_request.number}
+
+Instructions:
+- Be very concise and direct
+- Focus on specific issues, bugs, or improvements
+- Provide actionable suggestions with code examples
+- Use clear, brief explanations
+- Avoid lengthy paragraphs
+- If you find issues, suggest specific fixes
+
+Code changes:
+${diff}
+
+Provide a brief, actionable code review:`;
+
+    // Call Codellama
+    const review = await callCodellama(prompt);
+    
+    return review;
+  } catch (error) {
+    console.error('Error performing code review:', error);
+    throw error;
   }
 }
 
@@ -318,10 +422,58 @@ async function handleSlashCommands(context: any): Promise<void> {
         });
         break;
 
+      case 'review': {
+        try {
+          // Check if this is a PR by trying to get PR details
+          const { issue, repository } = context.payload;
+          
+          try {
+            // Try to get the PR details to confirm it's a PR
+            const { data: pr } = await context.octokit.pulls.get({
+              owner: repository.owner.login,
+              repo: repository.name,
+              pull_number: issue.number,
+            });
+            
+            // If we get here, it's a PR. Create a context with pull_request for the review
+            const prContext = {
+              ...context,
+              payload: {
+                ...context.payload,
+                pull_request: pr
+              }
+            };
+            
+            // Perform the code review
+            const review = await performCodeReview(prContext);
+            
+            // Post the review as a comment
+            await context.octokit.issues.createComment({
+              ...context.issue(),
+              body: `## 🤖 Code Review by DonkeyOps Bot\n\n${review}`
+            });
+          } catch (prError) {
+            // If we can't get PR details, it's probably an issue
+            await context.octokit.issues.createComment({
+              ...context.issue(),
+              body: '❌ **Error:** Code review is only available for pull requests, not issues.'
+            });
+            return;
+          }
+        } catch (error) {
+          console.error('Error performing code review:', error);
+          await context.octokit.issues.createComment({
+            ...context.issue(),
+            body: '❌ **Error:** Failed to perform code review. Please check if the Qwen2.5-coder service is running locally on port 11434.'
+          });
+        }
+        break;
+      }
+
       default:
         await context.octokit.issues.createComment({
           ...context.issue(),
-          body: `❌ **Unknown command:** \`${command.command}\`\n\n**Available commands:**\n- \`/donkeyops label <label>\` - Add a label\n- \`/donkeyops unlabel <label>\` - Remove a label\n- \`/donkeyops close\` - Close issue/PR\n- \`/donkeyops assign <reviewer>\` - Assign reviewer\n- \`/donkeyops approve\` - Approve PR`
+          body: `❌ **Unknown command:** \`${command.command}\`\n\n**Available commands:**\n- \`/donkeyops label <label>\` - Add a label\n- \`/donkeyops unlabel <label>\` - Remove a label\n- \`/donkeyops close\` - Close issue/PR\n- \`/donkeyops assign <reviewer>\` - Assign reviewer\n- \`/donkeyops unassign <reviewer>\` - Remove reviewer\n- \`/donkeyops approve\` - Approve PR\n- \`/donkeyops review\` - Perform AI code review`
         });
         break;
     }
