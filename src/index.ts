@@ -301,7 +301,7 @@ async function validateAndGetPRContext(context: any): Promise<any> {
         pull_request: pr
       }
     };
-  } catch (prError) {
+  } catch {
     // If we can't get PR details, it's probably an issue
     throw new Error('NOT_A_PR');
   }
