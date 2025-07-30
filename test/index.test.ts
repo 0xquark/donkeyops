@@ -619,6 +619,395 @@ describe("My Probot app", () => {
     expect(mock.pendingMocks()).toStrictEqual([]);
   });
 
+  test("handles /donkeyops review command", async () => {
+    const commentPayload = {
+      action: "created",
+      issue: {
+        number: 1,
+        body: "/donkeyops review"
+      },
+      pull_request: {
+        number: 1,
+        title: "Test PR"
+      },
+      repository: {
+        name: "donkey-ops-testing",
+        owner: {
+          login: "donkeylover"
+        }
+      },
+      installation: {
+        id: 2
+      }
+    };
+
+    const mockDiff = `diff --git a/src/index.ts b/src/index.ts
+index abc123..def456 100644
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -1,3 +1,4 @@
+ import { Probot } from "probot";
++import fetch from "node-fetch";
+ 
+ // Default valid types for conventional commits`;
+
+    const mock = nock("https://api.github.com")
+      .post("/app/installations/2/access_tokens")
+      .reply(200, {
+        token: "test",
+        permissions: {
+          issues: "write",
+          pulls: "read",
+        },
+      })
+      .get("/repos/donkeylover/donkey-ops-testing/pulls/1")
+      .reply(200, {
+        number: 1,
+        title: "Test PR",
+        head: { sha: "abc123" },
+        base: { sha: "def456" }
+      })
+      .get("/repos/donkeylover/donkey-ops-testing/pulls/1")
+      .matchHeader('accept', 'application/vnd.github.v3.diff')
+      .reply(200, mockDiff)
+      .post("/repos/donkeylover/donkey-ops-testing/issues/1/comments", (body: any) => {
+        expect(body.body).toContain("🤖 Code Review by DonkeyOps Bot");
+        return true;
+      })
+      .reply(200);
+
+    // Mock the Codellama API call
+    nock("http://localhost:11434")
+      .post("/api/generate", (body: any) => {
+        expect(body.model).toBe("qwen2.5-coder");
+        expect(body.prompt).toContain("Test PR");
+        expect(body.prompt).toContain("diff --git");
+        return true;
+      })
+      .reply(200, {
+        model: "qwen2.5-coder",
+        response: "Code looks good. No issues found.",
+        done: true
+      });
+
+    await probot.receive({ name: "issue_comment", payload: commentPayload });
+
+    expect(mock.pendingMocks()).toStrictEqual([]);
+  });
+
+  test("handles /donkeyops review command on issue (not PR)", async () => {
+    const commentPayload = {
+      action: "created",
+      issue: {
+        number: 1,
+        body: "/donkeyops review"
+      },
+      repository: {
+        name: "donkey-ops-testing",
+        owner: {
+          login: "donkeylover"
+        }
+      },
+      installation: {
+        id: 2
+      }
+    };
+
+    const mock = nock("https://api.github.com")
+      .post("/app/installations/2/access_tokens")
+      .reply(200, {
+        token: "test",
+        permissions: {
+          issues: "write",
+        },
+      })
+      .post("/repos/donkeylover/donkey-ops-testing/issues/1/comments", (body: any) => {
+        expect(body.body).toContain("❌ **Error:** Code review is only available for pull requests, not issues.");
+        return true;
+      })
+      .reply(200);
+
+    await probot.receive({ name: "issue_comment", payload: commentPayload });
+
+    expect(mock.pendingMocks()).toStrictEqual([]);
+  });
+
+  test("handles /donkeyops summary command", async () => {
+    const commentPayload = {
+      action: "created",
+      issue: {
+        number: 1,
+        body: "/donkeyops summary"
+      },
+      pull_request: {
+        number: 1,
+        title: "Test PR"
+      },
+      repository: {
+        name: "donkey-ops-testing",
+        owner: {
+          login: "donkeylover"
+        }
+      },
+      installation: {
+        id: 2
+      }
+    };
+
+    const mockDiff = `diff --git a/src/index.ts b/src/index.ts
+index abc123..def456 100644
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -1,3 +1,4 @@
+ import { Probot } from "probot";
++import fetch from "node-fetch";
+ 
+ // Default valid types for conventional commits`;
+
+    const mock = nock("https://api.github.com")
+      .post("/app/installations/2/access_tokens")
+      .reply(200, {
+        token: "test",
+        permissions: {
+          issues: "write",
+          pulls: "read",
+        },
+      })
+      .get("/repos/donkeylover/donkey-ops-testing/pulls/1")
+      .reply(200, {
+        number: 1,
+        title: "Test PR",
+        head: { sha: "abc123" },
+        base: { sha: "def456" }
+      })
+      .get("/repos/donkeylover/donkey-ops-testing/pulls/1")
+      .matchHeader('accept', 'application/vnd.github.v3.diff')
+      .reply(200, mockDiff)
+      .post("/repos/donkeylover/donkey-ops-testing/issues/1/comments", (body: any) => {
+        expect(body.body).toContain("📋 PR Summary");
+        return true;
+      })
+      .reply(200);
+
+    // Mock the Qwen2.5-coder API call
+    nock("http://localhost:11434")
+      .post("/api/generate", (body: any) => {
+        expect(body.model).toBe("qwen2.5-coder");
+        expect(body.prompt).toContain("Test PR");
+        expect(body.prompt).toContain("diff --git");
+        return true;
+      })
+      .reply(200, {
+        model: "qwen2.5-coder",
+        response: "Added node-fetch import to src/index.ts",
+        done: true
+      });
+
+    await probot.receive({ name: "issue_comment", payload: commentPayload });
+
+    expect(mock.pendingMocks()).toStrictEqual([]);
+  });
+
+  test("handles /donkeyops summary command on issue (not PR)", async () => {
+    const commentPayload = {
+      action: "created",
+      issue: {
+        number: 1,
+        body: "/donkeyops summary"
+      },
+      repository: {
+        name: "donkey-ops-testing",
+        owner: {
+          login: "donkeylover"
+        }
+      },
+      installation: {
+        id: 2
+      }
+    };
+
+    const mock = nock("https://api.github.com")
+      .post("/app/installations/2/access_tokens")
+      .reply(200, {
+        token: "test",
+        permissions: {
+          issues: "write",
+        },
+      })
+      .post("/repos/donkeylover/donkey-ops-testing/issues/1/comments", (body: any) => {
+        expect(body.body).toContain("❌ **Error:** PR summary is only available for pull requests, not issues.");
+        return true;
+      })
+      .reply(200);
+
+    await probot.receive({ name: "issue_comment", payload: commentPayload });
+
+    expect(mock.pendingMocks()).toStrictEqual([]);
+  });
+
+  test("handles /donkeyops ask command", async () => {
+    const commentPayload = {
+      action: "created",
+      issue: {
+        number: 1,
+        body: "/donkeyops ask What files were changed?"
+      },
+      pull_request: {
+        number: 1,
+        title: "Test PR"
+      },
+      repository: {
+        name: "donkey-ops-testing",
+        owner: {
+          login: "donkeylover"
+        }
+      },
+      installation: {
+        id: 2
+      }
+    };
+
+    const mockDiff = `diff --git a/src/index.ts b/src/index.ts
+index abc123..def456 100644
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -1,3 +1,4 @@
+ import { Probot } from "probot";
++import fetch from "node-fetch";
+ 
+ // Default valid types for conventional commits`;
+
+    const mock = nock("https://api.github.com")
+      .post("/app/installations/2/access_tokens")
+      .reply(200, {
+        token: "test",
+        permissions: {
+          issues: "write",
+          pulls: "read",
+        },
+      })
+      .get("/repos/donkeylover/donkey-ops-testing/pulls/1")
+      .reply(200, {
+        number: 1,
+        title: "Test PR",
+        head: { sha: "abc123" },
+        base: { sha: "def456" }
+      })
+      .get("/repos/donkeylover/donkey-ops-testing/pulls/1")
+      .matchHeader('accept', 'application/vnd.github.v3.diff')
+      .reply(200, mockDiff)
+      .post("/repos/donkeylover/donkey-ops-testing/issues/1/comments", (body: any) => {
+        expect(body.body).toContain("🤔 Question about PR Changes");
+        expect(body.body).toContain("What files were changed?");
+        return true;
+      })
+      .reply(200);
+
+    // Mock the Qwen2.5-coder API call
+    nock("http://localhost:11434")
+      .post("/api/generate", (body: any) => {
+        expect(body.model).toBe("qwen2.5-coder");
+        expect(body.prompt).toContain("What files were changed?");
+        expect(body.prompt).toContain("diff --git");
+        return true;
+      })
+      .reply(200, {
+        model: "qwen2.5-coder",
+        response: "The src/index.ts file was changed to add a node-fetch import.",
+        done: true
+      });
+
+    await probot.receive({ name: "issue_comment", payload: commentPayload });
+
+    expect(mock.pendingMocks()).toStrictEqual([]);
+  });
+
+  test("handles /donkeyops ask command without question", async () => {
+    const commentPayload = {
+      action: "created",
+      issue: {
+        number: 1,
+        body: "/donkeyops ask"
+      },
+      pull_request: {
+        number: 1,
+        title: "Test PR"
+      },
+      repository: {
+        name: "donkey-ops-testing",
+        owner: {
+          login: "donkeylover"
+        }
+      },
+      installation: {
+        id: 2
+      }
+    };
+
+    const mock = nock("https://api.github.com")
+      .post("/app/installations/2/access_tokens")
+      .reply(200, {
+        token: "test",
+        permissions: {
+          issues: "write",
+          pulls: "read",
+        },
+      })
+      .get("/repos/donkeylover/donkey-ops-testing/pulls/1")
+      .reply(200, {
+        number: 1,
+        title: "Test PR",
+        head: { sha: "abc123" },
+        base: { sha: "def456" }
+      })
+      .post("/repos/donkeylover/donkey-ops-testing/issues/1/comments", (body: any) => {
+        expect(body.body).toContain("❌ **Error:** Please provide a question");
+        return true;
+      })
+      .reply(200);
+
+    await probot.receive({ name: "issue_comment", payload: commentPayload });
+
+    expect(mock.pendingMocks()).toStrictEqual([]);
+  });
+
+  test("handles /donkeyops ask command on issue (not PR)", async () => {
+    const commentPayload = {
+      action: "created",
+      issue: {
+        number: 1,
+        body: "/donkeyops ask What changed?"
+      },
+      repository: {
+        name: "donkey-ops-testing",
+        owner: {
+          login: "donkeylover"
+        }
+      },
+      installation: {
+        id: 2
+      }
+    };
+
+    const mock = nock("https://api.github.com")
+      .post("/app/installations/2/access_tokens")
+      .reply(200, {
+        token: "test",
+        permissions: {
+          issues: "write",
+        },
+      })
+      .post("/repos/donkeylover/donkey-ops-testing/issues/1/comments", (body: any) => {
+        expect(body.body).toContain("❌ **Error:** Asking questions about changes is only available for pull requests, not issues.");
+        return true;
+      })
+      .reply(200);
+
+    await probot.receive({ name: "issue_comment", payload: commentPayload });
+
+    expect(mock.pendingMocks()).toStrictEqual([]);
+  });
+
   afterEach(() => {
     nock.cleanAll();
     nock.enableNetConnect();

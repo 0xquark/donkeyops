@@ -19,11 +19,13 @@
   },
   "dependencies": {
     "js-yaml": "^4.1.0",
+    "node-fetch": "^3.3.2",
     "probot": "^13.4.5"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.0.0",
+    "@types/node-fetch": "^2.6.13",
     "@typescript-eslint/eslint-plugin": "^8.38.0",
     "@typescript-eslint/parser": "^8.38.0",
     "eslint": "^9.32.0",
