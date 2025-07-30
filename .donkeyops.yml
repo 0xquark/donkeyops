@@ -1,0 +1,28 @@
+# Example .donkeyops.yml for DonkeyOps Bot
+conventional_commits:
+  # List of valid types for commit messages
+  type_enum:
+    - build
+    - chore
+    - ci
+    - docs
+    - feat
+    - fix
+    - perf
+    - refactor
+    - revert
+    - style
+    - test
+  # List of valid components for commit messages
+  valid_components:
+    - Core & Internals
+    - Clients
+    - Testing
+    - Documentation
+    # ... (all Rucio components)
+  # Require an issue number in the commit message (future use)
+  require_issue_number: true
+  # Commit message format (for documentation, not strict parsing yet)
+  commit_format: "<type>(<component>): <short_message> #<issue_number>"
+  # Enable or disable the conventional commit check
+  enabled: true 

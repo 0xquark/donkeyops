@@ -1,7 +1,22 @@
 import { Probot } from "probot";
 import yaml from "js-yaml";
 
-// Default valid components from Rucio's labels (https://github.com/rucio/rucio/labels)
+// Default valid types for conventional commits
+const DEFAULT_TYPE_ENUM = [
+  'build',
+  'chore',
+  'ci',
+  'docs',
+  'feat',
+  'fix',
+  'perf',
+  'refactor',
+  'revert',
+  'style',
+  'test'
+];
+
+// Default valid components from Rucio's labels
 const DEFAULT_VALID_COMPONENTS = [
   "Testing",
   "Clients", 
@@ -24,13 +39,15 @@ const DEFAULT_VALID_COMPONENTS = [
   "Refactoring"
 ];
 
-const DEFAULT_COMMIT_FORMAT = "<component>: <change_message> #<issue_number>";
+const DEFAULT_COMMIT_FORMAT = "<type>(<component>): <short_message> #<issue_number>";
 
 interface DonkeyOpsConfig {
   conventional_commits?: {
+    type_enum?: string[];
     valid_components?: string[];
     require_issue_number?: boolean;
     commit_format?: string;
+    enabled?: boolean;
   };
 }
 
@@ -57,19 +74,22 @@ async function getDonkeyOpsConfig(context: any): Promise<DonkeyOpsConfig> {
   }
 }
 
-function validateCommitMessage(commitMessage: string, validComponents: string[], commitFormat: string): CommitValidationResult {
+function validateCommitMessage(
+  commitMessage: string,
+  typeEnum: string[],
+  validComponents: string[],
+  commitFormat: string
+): CommitValidationResult {
   // Remove any leading/trailing whitespace
   const trimmedMessage = commitMessage.trim();
 
-  // Check if the message follows the pattern: <component>: <change_message> #<issue_number>
-  // We'll use a regex based on the format, but for now, keep the default pattern
-  const conventionalCommitRegex = /^([^:]+):\s+(.+?)\s+#(\d+)$/i;
+  // Regex for <type>(<component>): <short_message> #<issue_number>
+  const conventionalCommitRegex = /^([a-zA-Z\-]+)\(([^)]+)\):\s+(.+?)\s+#(\d+)$/i;
   const match = trimmedMessage.match(conventionalCommitRegex);
 
   if (!match) {
     const suggestion = `Please format your commit message as: "${commitFormat}"`;
-    const warning = `⚠️ **Conventional Commit Warning**\n\nThis commit doesn't follow the conventional commit format.\n\n**Expected format:** \`${commitFormat}\`\n\n**Valid components:** ${validComponents.join(', ')}\n\n**Suggestion:** ${suggestion}\n\nFor more information, see: https://rucio.github.io/documentation/contributing/`;
-
+    const warning = `⚠️ **Conventional Commit Warning**\n\nThis commit doesn't follow the conventional commit format.\n\n**Expected format:** \`${commitFormat}\`\n\n**Valid types:** ${typeEnum.join(', ')}\n**Valid components:** ${validComponents.join(', ')}\n\n**Suggestion:** ${suggestion}\n\nFor more information, see: https://rucio.github.io/documentation/contributing/`;
     return {
       isValid: false,
       warning,
@@ -77,17 +97,29 @@ function validateCommitMessage(commitMessage: string, validComponents: string[],
     };
   }
 
-  const [, component] = match;
+  const [ , type, component ] = match;
+
+  // Check if the type is valid (case insensitive)
+  const isValidType = typeEnum.some(
+    validType => validType.toLowerCase() === type.toLowerCase()
+  );
+  if (!isValidType) {
+    const suggestion = `Please use one of the valid types: ${typeEnum.join(', ')}`;
+    const warning = `⚠️ **Invalid Type Warning**\n\nType "${type}" is not recognized.\n\n**Valid types:** ${typeEnum.join(', ')}\n\n**Suggestion:** ${suggestion}\n\nFor more information, see: https://rucio.github.io/documentation/contributing/`;
+    return {
+      isValid: false,
+      warning,
+      suggestion
+    };
+  }
 
   // Check if the component is valid (case insensitive)
   const isValidComponent = validComponents.some(
     validComponent => validComponent.toLowerCase() === component.toLowerCase()
   );
-
   if (!isValidComponent) {
     const suggestion = `Please use one of the valid components: ${validComponents.join(', ')}`;
     const warning = `⚠️ **Invalid Component Warning**\n\nComponent "${component}" is not recognized.\n\n**Valid components:** ${validComponents.join(', ')}\n\n**Suggestion:** ${suggestion}\n\nFor more information, see: https://rucio.github.io/documentation/contributing/`;
-
     return {
       isValid: false,
       warning,
@@ -109,8 +141,14 @@ export default (app: Probot) => {
 
     // Load config from repo (if present)
     const config = await getDonkeyOpsConfig(context);
+    const typeEnum = config.conventional_commits?.type_enum || DEFAULT_TYPE_ENUM;
     const validComponents = config.conventional_commits?.valid_components || DEFAULT_VALID_COMPONENTS;
     const commitFormat = config.conventional_commits?.commit_format || DEFAULT_COMMIT_FORMAT;
+    const enabled = config.conventional_commits?.enabled !== false; // default true
+
+    if (!enabled) {
+      return; // skip validation if disabled
+    }
 
     try {
       // Get the commits for this PR
@@ -124,7 +162,7 @@ export default (app: Probot) => {
 
       // Validate each commit
       for (const commit of commits) {
-        const validation = validateCommitMessage(commit.commit.message, validComponents, commitFormat);
+        const validation = validateCommitMessage(commit.commit.message, typeEnum, validComponents, commitFormat);
         if (!validation.isValid) {
           invalidCommits.push({
             sha: commit.sha.substring(0, 7),
