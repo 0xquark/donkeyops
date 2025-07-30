@@ -343,6 +343,43 @@ Provide a brief summary of the changes:`;
   }
 }
 
+async function askAboutDiff(context: any, question: string): Promise<string> {
+  try {
+    const { pull_request, repository } = context.payload;
+    
+    const diff = await getPRDiff(context);
+    
+    // Create a prompt for answering questions about the diff
+    const prompt = `Answer this question about the code changes:
+
+Repository: ${repository.owner.login}/${repository.name}
+PR Title: ${pull_request.title}
+PR Number: #${pull_request.number}
+
+Question: ${question}
+
+Instructions:
+- Answer the question based on the code changes shown
+- Be concise and direct
+- If the question cannot be answered from the diff, say so
+- Focus on the specific changes in the diff
+- Provide specific examples from the code if relevant
+
+Code changes:
+${diff}
+
+Answer the question:`;
+
+    // Call Codellama
+    const answer = await callCodellama(prompt);
+    
+    return answer;
+  } catch (error) {
+    console.error('Error asking about diff:', error);
+    throw error;
+  }
+}
+
 function parseSlashCommand(body: string): SlashCommand | null {
   
   if (!body || body.trim() === '') {
@@ -541,10 +578,50 @@ async function handleSlashCommands(context: any): Promise<void> {
         break;
       }
 
+      case 'ask': {
+        try {
+          const prContext = await validateAndGetPRContext(context);
+          
+          // Extract the question from the command arguments
+          const question = command.args.join(' ');
+          
+          if (!question.trim()) {
+            await context.octokit.issues.createComment({
+              ...context.issue(),
+              body: '❌ **Error:** Please provide a question. Usage: `/donkeyops ask <your question>`'
+            });
+            return;
+          }
+          
+          // Ask about the diff
+          const answer = await askAboutDiff(prContext, question);
+          
+          // Post the answer as a comment
+          await context.octokit.issues.createComment({
+            ...context.issue(),
+            body: `## 🤔 Question about PR Changes\n\n**Q:** ${question}\n\n**A:** ${answer}`
+          });
+        } catch (error) {
+          if (error instanceof Error && error.message === 'NOT_A_PR') {
+            await context.octokit.issues.createComment({
+              ...context.issue(),
+              body: '❌ **Error:** Asking questions about changes is only available for pull requests, not issues.'
+            });
+          } else {
+            console.error('Error asking about diff:', error);
+            await context.octokit.issues.createComment({
+              ...context.issue(),
+              body: '❌ **Error:** Failed to answer your question. Please check if the Qwen2.5-coder service is running properly.'
+            });
+          }
+        }
+        break;
+      }
+
       default:
         await context.octokit.issues.createComment({
           ...context.issue(),
-          body: `❌ **Unknown command:** \`${command.command}\`\n\n**Available commands:**\n- \`/donkeyops label <label>\` - Add a label\n- \`/donkeyops unlabel <label>\` - Remove a label\n- \`/donkeyops close\` - Close issue/PR\n- \`/donkeyops assign <reviewer>\` - Assign reviewer\n- \`/donkeyops unassign <reviewer>\` - Remove reviewer\n- \`/donkeyops approve\` - Approve PR\n- \`/donkeyops review\` - Perform AI code review\n- \`/donkeyops summary\` - Generate PR summary`
+          body: `❌ **Unknown command:** \`${command.command}\`\n\n**Available commands:**\n- \`/donkeyops label <label>\` - Add a label\n- \`/donkeyops unlabel <label>\` - Remove a label\n- \`/donkeyops close\` - Close issue/PR\n- \`/donkeyops assign <reviewer>\` - Assign reviewer\n- \`/donkeyops unassign <reviewer>\` - Remove reviewer\n- \`/donkeyops approve\` - Approve PR\n- \`/donkeyops review\` - Perform AI code review\n- \`/donkeyops summary\` - Generate PR summary\n- \`/donkeyops ask <question>\` - Ask questions about the changes`
         });
         break;
     }
