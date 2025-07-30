@@ -358,6 +358,265 @@ describe("My Probot app", () => {
     expect(mock.pendingMocks()).toStrictEqual([]);
   });
 
+  test("handles /donkeyops label command", async () => {
+    const commentPayload = {
+      action: "created",
+      issue: {
+        number: 1,
+        body: "/donkeyops label Core"
+      },
+      repository: {
+        name: "testing-things",
+        owner: {
+          login: "hiimbex"
+        }
+      },
+      installation: {
+        id: 2
+      }
+    };
+
+    const mock = nock("https://api.github.com")
+      .post("/app/installations/2/access_tokens")
+      .reply(200, {
+        token: "test",
+        permissions: {
+          issues: "write",
+        },
+      })
+      .post("/repos/hiimbex/testing-things/issues/1/labels", (body: any) => {
+        expect(body.labels).toContain("Core");
+        return true;
+      })
+      .reply(200);
+
+    await probot.receive({ name: "issue_comment", payload: commentPayload });
+
+    expect(mock.pendingMocks()).toStrictEqual([]);
+  });
+
+  test("handles /donkeyops unlabel command", async () => {
+    const commentPayload = {
+      action: "created",
+      issue: {
+        number: 1,
+        body: "/donkeyops unlabel Core"
+      },
+      repository: {
+        name: "testing-things",
+        owner: {
+          login: "hiimbex"
+        }
+      },
+      installation: {
+        id: 2
+      }
+    };
+
+    const mock = nock("https://api.github.com")
+      .post("/app/installations/2/access_tokens")
+      .reply(200, {
+        token: "test",
+        permissions: {
+          issues: "write",
+        },
+      })
+      .delete("/repos/hiimbex/testing-things/issues/1/labels/Core")
+      .reply(200);
+
+    await probot.receive({ name: "issue_comment", payload: commentPayload });
+
+    expect(mock.pendingMocks()).toStrictEqual([]);
+  });
+
+  test("handles /donkeyops close command", async () => {
+    const commentPayload = {
+      action: "created",
+      issue: {
+        number: 1,
+        body: "/donkeyops close"
+      },
+      repository: {
+        name: "testing-things",
+        owner: {
+          login: "hiimbex"
+        }
+      },
+      installation: {
+        id: 2
+      }
+    };
+
+    const mock = nock("https://api.github.com")
+      .post("/app/installations/2/access_tokens")
+      .reply(200, {
+        token: "test",
+        permissions: {
+          issues: "write",
+        },
+      })
+      .patch("/repos/hiimbex/testing-things/issues/1", (body: any) => {
+        expect(body.state).toBe("closed");
+        return true;
+      })
+      .reply(200);
+
+    await probot.receive({ name: "issue_comment", payload: commentPayload });
+
+    expect(mock.pendingMocks()).toStrictEqual([]);
+  });
+
+  test("handles /donkeyops assign command", async () => {
+    const commentPayload = {
+      action: "created",
+      issue: {
+        number: 1,
+        body: "/donkeyops assign username"
+      },
+      repository: {
+        name: "testing-things",
+        owner: {
+          login: "hiimbex"
+        }
+      },
+      installation: {
+        id: 2
+      }
+    };
+
+    const mock = nock("https://api.github.com")
+      .post("/app/installations/2/access_tokens")
+      .reply(200, {
+        token: "test",
+        permissions: {
+          issues: "write",
+        },
+      })
+      .post("/repos/hiimbex/testing-things/issues/1/assignees", (body: any) => {
+        expect(body.assignees).toContain("username");
+        return true;
+      })
+      .reply(200);
+
+    await probot.receive({ name: "issue_comment", payload: commentPayload });
+
+    expect(mock.pendingMocks()).toStrictEqual([]);
+  });
+
+  test("handles /donkeyops approve command", async () => {
+    const commentPayload = {
+      action: "created",
+      issue: {
+        number: 1,
+        body: "/donkeyops approve"
+      },
+      repository: {
+        name: "testing-things",
+        owner: {
+          login: "hiimbex"
+        }
+      },
+      installation: {
+        id: 2
+      }
+    };
+
+    const mock = nock("https://api.github.com")
+      .post("/app/installations/2/access_tokens")
+      .reply(200, {
+        token: "test",
+        permissions: {
+          issues: "write",
+          pulls: "write",
+        },
+      })
+      .post("/repos/hiimbex/testing-things/pulls/1/reviews", (body: any) => {
+        expect(body.event).toBe("APPROVE");
+        expect(body.body).toBe("Approved via /donkeyops approve command");
+        return true;
+      })
+      .reply(200);
+
+    await probot.receive({ name: "issue_comment", payload: commentPayload });
+
+    expect(mock.pendingMocks()).toStrictEqual([]);
+  });
+
+  test("handles unknown slash command", async () => {
+    const commentPayload = {
+      action: "created",
+      issue: {
+        number: 1,
+        body: "/donkeyops unknown"
+      },
+      repository: {
+        name: "testing-things",
+        owner: {
+          login: "hiimbex"
+        }
+      },
+      installation: {
+        id: 2
+      }
+    };
+
+    const mock = nock("https://api.github.com")
+      .post("/app/installations/2/access_tokens")
+      .reply(200, {
+        token: "test",
+        permissions: {
+          issues: "write",
+        },
+      })
+      .post("/repos/hiimbex/testing-things/issues/1/comments", (body: any) => {
+        expect(body.body).toContain("❌ **Unknown command:** `unknown`");
+        expect(body.body).toContain("Available commands:");
+        return true;
+      })
+      .reply(200);
+
+    await probot.receive({ name: "issue_comment", payload: commentPayload });
+
+    expect(mock.pendingMocks()).toStrictEqual([]);
+  });
+
+  test("handles /donkeyops unassign command", async () => {
+    const commentPayload = {
+      action: "created",
+      issue: {
+        number: 1,
+        body: "/donkeyops unassign username"
+      },
+      repository: {
+        name: "testing-things",
+        owner: {
+          login: "hiimbex"
+        }
+      },
+      installation: {
+        id: 2
+      }
+    };
+
+    const mock = nock("https://api.github.com")
+      .post("/app/installations/2/access_tokens")
+      .reply(200, {
+        token: "test",
+        permissions: {
+          issues: "write",
+        },
+      })
+      .delete("/repos/hiimbex/testing-things/issues/1/assignees", (body: any) => {
+        expect(body.assignees).toContain("username");
+        return true;
+      })
+      .reply(200);
+
+    await probot.receive({ name: "issue_comment", payload: commentPayload });
+
+    expect(mock.pendingMocks()).toStrictEqual([]);
+  });
+
   afterEach(() => {
     nock.cleanAll();
     nock.enableNetConnect();

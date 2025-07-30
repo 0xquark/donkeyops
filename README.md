@@ -1,8 +1,9 @@
 # donkeyops
 
-> A GitHub App built with [Probot](https://github.com/probot/probot) framework for managing PRs and Issues with conventional commits and automatic labeling
+> A GitHub App built with [Probot](https://github.com/probot/probot) framework for managing PRs and Issues with conventional commits, automatic labeling, and slash commands
 
-[![CI](https://github.com/rucio/donkeyops/actions/workflows/ci.yml/badge.svg)](https://github.com/rucio/donkeyops/actions/workflows/ci.yml)
+[![Test](https://github.com/rucio/donkeyops/actions/workflows/test.yml/badge.svg)](https://github.com/rucio/donkeyops/actions/workflows/test.yml)
+[![Lint](https://github.com/rucio/donkeyops/actions/workflows/lint.yml/badge.svg)](https://github.com/rucio/donkeyops/actions/workflows/lint.yml)
 
 ## Setup
 

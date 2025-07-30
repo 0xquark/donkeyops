@@ -60,6 +60,11 @@ interface CommitValidationResult {
   warning?: string;
 }
 
+interface SlashCommand {
+  command: string;
+  args: string[];
+}
+
 async function getDonkeyOpsConfig(context: any): Promise<DonkeyOpsConfig> {
   try {
     const configFile = await context.octokit.repos.getContent({
@@ -173,6 +178,162 @@ async function applyLabelsToPR(context: any, labels: string[]): Promise<void> {
   }
 }
 
+function parseSlashCommand(body: string): SlashCommand | null {
+  
+  if (!body || body.trim() === '') {
+    return null;
+  }
+  
+  const lines = body.split('\n');
+  for (const line of lines) {
+    const trimmed = line.trim();
+    
+    if (trimmed.startsWith('/donkeyops')) {
+      // Split by spaces but preserve quoted strings and @ symbols
+      const parts = trimmed.split(' ').filter(part => part.length > 0);
+      
+      if (parts.length >= 2) {
+        return {
+          command: parts[1],
+          args: parts.slice(2)
+        };
+      }
+    }
+  }
+  return null;
+}
+
+async function handleSlashCommands(context: any): Promise<void> {
+  const { issue, repository, comment } = context.payload;
+  
+  // Try different possible locations for the comment body
+  let commentBody = '';
+  if (comment && comment.body) {
+    commentBody = comment.body;
+  } else if (issue && issue.body) {
+    commentBody = issue.body;
+  }
+  
+  const command = parseSlashCommand(commentBody);
+
+  if (!command) {
+    return;
+  }
+
+  try {
+    switch (command.command) {
+      case 'label': {
+        if (command.args.length === 0) {
+          await context.octokit.issues.createComment({
+            ...context.issue(),
+            body: '❌ **Error:** Please specify a label. Usage: `/donkeyops label <label>`'
+          });
+          return;
+        }
+        
+        const label = command.args[0];
+        await context.octokit.issues.addLabels({
+          owner: repository.owner.login,
+          repo: repository.name,
+          issue_number: issue.number,
+          labels: [label],
+        });
+        break;
+      }
+
+      case 'unlabel': {
+        if (command.args.length === 0) {
+          await context.octokit.issues.createComment({
+            ...context.issue(),
+            body: '❌ **Error:** Please specify a label. Usage: `/donkeyops unlabel <label>`'
+          });
+          return;
+        }
+        
+        const labelToRemove = command.args[0];
+        await context.octokit.issues.removeLabel({
+          owner: repository.owner.login,
+          repo: repository.name,
+          issue_number: issue.number,
+          name: labelToRemove,
+        });
+        break;
+      }
+
+      case 'close':
+        await context.octokit.issues.update({
+          owner: repository.owner.login,
+          repo: repository.name,
+          issue_number: issue.number,
+          state: 'closed',
+        });
+        break;
+
+      case 'assign': {
+        if (command.args.length === 0) {
+          await context.octokit.issues.createComment({
+            ...context.issue(),
+            body: '❌ **Error:** Please specify a reviewer. Usage: `/donkeyops assign <reviewer-username>`'
+          });
+          return;
+        }
+        
+        const reviewer = command.args[0].replace('@', ''); // Remove @ symbol if present
+        await context.octokit.issues.addAssignees({
+          owner: repository.owner.login,
+          repo: repository.name,
+          issue_number: issue.number,
+          assignees: [reviewer],
+        });
+        break;
+      }
+
+      case 'unassign': {
+        if (command.args.length === 0) {
+          await context.octokit.issues.createComment({
+            ...context.issue(),
+            body: '❌ **Error:** Please specify a reviewer. Usage: `/donkeyops unassign <reviewer-username>`'
+          });
+          return;
+        }
+        
+        const reviewerToRemove = command.args[0].replace('@', ''); // Remove @ symbol if present
+        await context.octokit.issues.removeAssignees({
+          owner: repository.owner.login,
+          repo: repository.name,
+          issue_number: issue.number,
+          assignees: [reviewerToRemove],
+        });
+        break;
+      }
+
+      case 'approve':
+        // Approve the PR using GitHub's review API
+        await context.octokit.pulls.createReview({
+          owner: repository.owner.login,
+          repo: repository.name,
+          pull_number: issue.number,
+          event: 'APPROVE',
+          body: 'Approved via /donkeyops approve command'
+        });
+        break;
+
+      default:
+        await context.octokit.issues.createComment({
+          ...context.issue(),
+          body: `❌ **Unknown command:** \`${command.command}\`\n\n**Available commands:**\n- \`/donkeyops label <label>\` - Add a label\n- \`/donkeyops unlabel <label>\` - Remove a label\n- \`/donkeyops close\` - Close issue/PR\n- \`/donkeyops assign <reviewer>\` - Assign reviewer\n- \`/donkeyops approve\` - Approve PR`
+        });
+        break;
+    }
+  } catch (error) {
+    console.error('Error handling slash command:', error);
+    await context.octokit.issues.createComment({
+      ...context.issue(),
+      body: '❌ **Error:** Failed to execute command. Please check the syntax and try again.'
+    });
+  }
+}
+
 export default (app: Probot) => {
   // Listen to pull request events to check commit messages
   app.on(["pull_request.opened", "pull_request.synchronize"], async (context) => {
@@ -182,6 +343,15 @@ export default (app: Probot) => {
   // Listen to pull request events for automatic labeling
   app.on(["pull_request.opened", "pull_request.edited"], async (context) => {
     await autoLabelPR(context);
+  });
+
+  // Listen to issue and PR comment events for slash commands
+  app.on("issue_comment.created", async (context) => {
+    await handleSlashCommands(context);
+  });
+
+  app.on("pull_request_review_comment.created", async (context) => {
+    await handleSlashCommands(context);
   });
 
   async function checkCommitsInPR(context: any) {
