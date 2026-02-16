@@ -25,7 +25,9 @@ def get_installation_client(app_id: str, private_key: str, repo_name: str) -> Gi
     integration = get_app_auth(app_id, private_key)
     
     try:
-        installation = integration.get_repo_installation(repo_name)
+        # Split repo_name into owner and repo
+        owner, repo = repo_name.split('/')
+        installation = integration.get_repo_installation(owner, repo)
     except Exception as e:
         print(f"Error finding installation for repo {repo_name}: {e}")
         # Fallback or re-raise depending on strictness. 
