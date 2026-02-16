@@ -7,15 +7,15 @@ setup(
     author="Rucio",
     packages=find_packages(),
     install_requires=[
-        "PyGithub>=2.1.1",
-        "python-dotenv>=1.0.0",
-        "requests>=2.31.0",
-        "cryptography>=41.0.0",  # Required for GitHub App signing if not using built-in
+        "PyGithub>=2.8.1",
+        "python-dotenv>=1.2.1",
+        "requests>=2.32.5",
+        "cryptography>=46.0.0",  # Required for GitHub App signing if not using built-in
     ],
     entry_points={
         "console_scripts": [
             "donkeyops=donkeyops.cli:main",
         ],
     },
-    python_requires=">=3.9",
+    python_requires=">=3.12",
 )
