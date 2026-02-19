@@ -17,5 +17,8 @@ setup(
             "donkeyops=donkeyops.cli:main",
         ],
     },
+    extras_require={
+        "dev": ["pytest>=8.0.0"],
+    },
     python_requires=">=3.12",
 )
