@@ -15,8 +15,9 @@ def check_stale_prs(gh: Github, repo_name: str, days_until_stale: int = WARN_DAY
     """
     Checks for stale PRs in the given repository.
     Logic:
-    1. If inactive > days_until_stale: Mark as stale (Label + Comment).
+    1. If inactive > days_until_stale AND not awaiting review: Mark as stale (Label + Comment).
     2. If already stale and inactive > CLOSE_DAYS since staleness: Close PR.
+    3. If awaiting review from assigned reviewers: Skip.
     """
     print(f"Checking {repo_name} for Stale PRs...")
     
@@ -36,26 +37,41 @@ def process_pr(pr: PullRequest, days_until_stale: int):
     last_updated = pr.updated_at.replace(tzinfo=timezone.utc)
     
     if is_labeled_stale(pr):
-        # Check if it should be closed
-        # We assume if it's labeled stale, we look at the last update.
-        # Ideally, we should check if the last update was the bot itself or the user.
-        # Simplification: If 7 days passed since last update (which includes the bot's stale comment), it's dead.
+        # Already warned — check if it should be closed now.
+        # Note: our stale comment itself updates `updated_at`, so CLOSE_DAYS
+        # is measured from when the bot last commented (or any subsequent activity).
         if (now - last_updated) > timedelta(days=CLOSE_DAYS):
             close_stale_pr(pr)
     else:
-        # Check if it should be marked stale
+        # Not yet stale — check if it should be warned.
         if (now - last_updated) > timedelta(days=days_until_stale):
-            mark_pr_stale(pr, days_until_stale)
+            # Skip PRs that are still awaiting review.
+            if is_awaiting_review(pr):
+                print(f"  [SKIP] PR #{pr.number} is inactive but awaiting reviewer response. Skipping.")
+            else:
+                mark_pr_stale(pr, days_until_stale)
 
 def is_labeled_stale(pr: PullRequest) -> bool:
+    """Returns True if the PR has the 'stale' label."""
     return STALE_LABEL in [l.name for l in pr.labels]
+
+def is_awaiting_review(pr: PullRequest) -> bool:
+    """
+    Returns True if the PR has pending review requests (i.e., assigned reviewers
+    who haven't yet submitted a review).
+    """
+    users_requested, teams_requested = pr.get_review_requests()
+    return users_requested.totalCount > 0 or teams_requested.totalCount > 0
 
 def mark_pr_stale(pr: PullRequest, days: int):
     print(f"  [WARN] PR #{pr.number} is inactive for {days}+ days. Marking stale.")
-    pr.create_issue_comment(f"This PR has been inactive for {days} days. It will be closed in {CLOSE_DAYS} days if there is no activity.")
+    pr.create_issue_comment(
+        f"This PR has been inactive for {days} days and has no pending review requests. "
+        f"It will be closed in {CLOSE_DAYS} days if there is no further activity."
+    )
     pr.add_to_labels(STALE_LABEL)
 
 def close_stale_pr(pr: PullRequest):
     print(f"  [CLOSE] PR #{pr.number} has been stale for too long. Closing.")
-    pr.create_issue_comment(f"Closing this PR due to inactivity.")
+    pr.create_issue_comment("Closing this PR due to inactivity.")
     pr.edit(state="closed")
