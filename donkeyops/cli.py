@@ -5,7 +5,7 @@ import argparse
 import os
 import sys
 from dotenv import load_dotenv
-from .core import check_stale_prs
+from .core import check_stale_prs, check_failing_test_prs
 from .auth import get_github_client
 
 # Load .env if present
@@ -13,7 +13,7 @@ load_dotenv()
 
 def main():
     parser = argparse.ArgumentParser(description="DonkeyOps GitHub Bot")
-    parser.add_argument("--action", choices=["stale"], required=True)
+    parser.add_argument("--action", choices=["stale", "failing-tests"], required=True)
     parser.add_argument("--repo", required=True, help="Repository name (e.g. rucio/rucio)")
     
     # Auth arguments (can also be set via ENV)
@@ -46,6 +46,8 @@ def main():
 
     if args.action == "stale":
         check_stale_prs(gh, args.repo)
+    elif args.action == "failing-tests":
+        check_failing_test_prs(gh, args.repo)
     else:
         print(f"Action '{args.action}' not implemented yet")
 
