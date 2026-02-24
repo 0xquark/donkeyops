@@ -4,6 +4,14 @@ Abstract base class for all RucioBot checks.
 from abc import ABC, abstractmethod
 from github import Github
 
+# PRs carrying this label are completely skipped by all bot checks.
+NO_BOT_LABEL = "no-bot"
+
+
+def is_excluded_from_bot(pr) -> bool:
+    """Return True if the PR carries the no-bot exclusion label."""
+    return NO_BOT_LABEL in [l.name for l in pr.labels]
+
 
 class BaseCheck(ABC):
     """
