@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from github import Github
 from github.PullRequest import PullRequest
 
-from .base import BaseCheck
+from .base import BaseCheck, NO_BOT_LABEL, is_excluded_from_bot
 
 FAILING_TESTS_LABEL = "failing-tests"
 FAILING_TESTS_WARN_DAYS = 1    # Days of inactivity before warning
@@ -27,6 +27,9 @@ class FailingTestsCheck(BaseCheck):
 
 def process_failing_test_pr(pr: PullRequest, repo) -> None:
     """Process a single PR to check for failing tests and apply warn/close logic."""
+    if is_excluded_from_bot(pr):
+        print(f"  [SKIP] PR #{pr.number} has '{NO_BOT_LABEL}' label. Skipping.")
+        return
     now = datetime.now(timezone.utc)
     last_updated = pr.updated_at.replace(tzinfo=timezone.utc)
     inactive_days = (now - last_updated).days
