@@ -1,0 +1,77 @@
+import unittest
+from datetime import datetime, timedelta, timezone
+from unittest.mock import MagicMock
+
+from donkeyops.checks.stale_prs import (
+    process_pr,
+    STALE_LABEL,
+    WARN_DAYS,
+    CLOSE_DAYS,
+)
+
+
+class TestStalePRs(unittest.TestCase):
+
+    def create_mock_pr(self, number, updated_delta_days, labels=[], pending_reviewers=0, pending_teams=0):
+        pr = MagicMock()
+        pr.number = number
+        pr.title = f"PR {number}"
+        pr.updated_at = datetime.now(timezone.utc) - timedelta(days=updated_delta_days)
+
+        label_mocks = [MagicMock(name=l) for l in labels]
+        for m, l in zip(label_mocks, labels):
+            m.name = l
+        pr.labels = label_mocks
+
+        users_requested = MagicMock()
+        users_requested.totalCount = pending_reviewers
+        teams_requested = MagicMock()
+        teams_requested.totalCount = pending_teams
+        pr.get_review_requests.return_value = (users_requested, teams_requested)
+
+        return pr
+
+    def test_warns_inactive_pr(self):
+        """Inactive PR with no pending reviewers gets labeled and commented on."""
+        pr = self.create_mock_pr(1, updated_delta_days=WARN_DAYS + 1, labels=[], pending_reviewers=0)
+        process_pr(pr, WARN_DAYS)
+        pr.add_to_labels.assert_called_with(STALE_LABEL)
+        pr.create_issue_comment.assert_called_once()
+
+    def test_ignores_active_pr(self):
+        """Active PR is ignored."""
+        pr = self.create_mock_pr(1, updated_delta_days=5, labels=[])
+        process_pr(pr, WARN_DAYS)
+        pr.add_to_labels.assert_not_called()
+        pr.create_issue_comment.assert_not_called()
+
+    def test_closes_stale_pr(self):
+        """Stale-labeled PR with further inactivity is closed."""
+        pr = self.create_mock_pr(1, updated_delta_days=CLOSE_DAYS + 1, labels=[STALE_LABEL])
+        process_pr(pr, WARN_DAYS)
+        pr.edit.assert_called_with(state="closed")
+        pr.create_issue_comment.assert_called()
+
+    def test_ignores_recently_active_stale_pr(self):
+        """Stale-labeled PR that was recently updated is NOT closed."""
+        pr = self.create_mock_pr(1, updated_delta_days=2, labels=[STALE_LABEL])
+        process_pr(pr, WARN_DAYS)
+        pr.edit.assert_not_called()
+
+    def test_skips_pr_awaiting_reviewer(self):
+        """Inactive PR with pending review requests is NOT marked stale."""
+        pr = self.create_mock_pr(1, updated_delta_days=WARN_DAYS + 1, labels=[], pending_reviewers=1)
+        process_pr(pr, WARN_DAYS)
+        pr.add_to_labels.assert_not_called()
+        pr.create_issue_comment.assert_not_called()
+
+    def test_marks_stale_when_no_pending_reviewers(self):
+        """Inactive PR without pending reviewers IS marked stale."""
+        pr = self.create_mock_pr(1, updated_delta_days=WARN_DAYS + 1, labels=[], pending_reviewers=0)
+        process_pr(pr, WARN_DAYS)
+        pr.add_to_labels.assert_called_with(STALE_LABEL)
+        pr.create_issue_comment.assert_called_once()
+
+
+if __name__ == "__main__":
+    unittest.main()
