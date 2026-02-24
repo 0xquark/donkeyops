@@ -1,5 +1,5 @@
 """
-CLI Entrypoint for DonkeyOps.
+CLI Entrypoint for RucioBot.
 """
 import argparse
 import os
@@ -12,7 +12,7 @@ from .auth import get_github_client
 load_dotenv()
 
 def main():
-    parser = argparse.ArgumentParser(description="DonkeyOps GitHub Bot")
+    parser = argparse.ArgumentParser(description="RucioBot GitHub Bot")
     parser.add_argument("--action", choices=list(CHECKS.keys()), required=True)
     parser.add_argument("--repo", required=True, help="Repository name (e.g. rucio/rucio)")
 

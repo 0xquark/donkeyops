@@ -2,7 +2,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
-from donkeyops.checks.stale_prs import (
+from ruciobot.checks.stale_prs import (
     process_pr,
     STALE_LABEL,
     WARN_DAYS,

@@ -1,5 +1,5 @@
 """
-Flask Server Entrypoint for DonkeyOps Webhooks.
+Flask Server Entrypoint for RucioBot Webhooks.
 """
 from flask import Flask, request, jsonify
 
