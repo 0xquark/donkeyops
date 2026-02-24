@@ -87,5 +87,16 @@ class TestFailingTestPRs(unittest.TestCase):
         pr.edit.assert_not_called()
 
 
+    def test_skips_pr_with_no_bot_label(self):
+        """PR with 'no-bot' label is completely skipped by all failing-tests checks."""
+        from ruciobot.checks.base import NO_BOT_LABEL
+        pr = self.create_mock_pr(1, updated_delta_days=FAILING_TESTS_WARN_DAYS + 5, labels=[NO_BOT_LABEL])
+        repo = self.create_mock_repo(["failure"])
+        process_failing_test_pr(pr, repo)
+        pr.add_to_labels.assert_not_called()
+        pr.create_issue_comment.assert_not_called()
+        pr.edit.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
