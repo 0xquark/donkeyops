@@ -1,5 +1,5 @@
 """
-Authentication helpers for DonkeyOps.
+Authentication helpers for RucioBot.
 """
 import os
 import sys

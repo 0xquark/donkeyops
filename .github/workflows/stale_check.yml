@@ -1,4 +1,4 @@
-name: DonkeyOps Maintenance Checks
+name: RucioBot Maintenance Checks
 
 on:
   schedule:
@@ -17,7 +17,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install DonkeyOps
+      - name: Install RucioBot
         run: |
           pip install .
 
@@ -26,11 +26,11 @@ jobs:
           APP_ID: ${{ secrets.BOT_APP_ID }}
           PRIVATE_KEY: ${{ secrets.BOT_PRIVATE_KEY }}
         run: |
-          donkeyops --action stale --repo ${{ github.repository }}
+          ruciobot --action stale --repo ${{ github.repository }}
 
       - name: Run Failing Tests Check
         env:
           APP_ID: ${{ secrets.BOT_APP_ID }}
           PRIVATE_KEY: ${{ secrets.BOT_PRIVATE_KEY }}
         run: |
-          donkeyops --action failing-tests --repo ${{ github.repository }}
+          ruciobot --action failing-tests --repo ${{ github.repository }}

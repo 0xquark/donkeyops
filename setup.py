@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="donkeyops",
+    name="ruciobot",
     version="0.1.0",
     description="Rucio GitHub Bot for PR maintenance",
     author="Rucio",
@@ -14,7 +14,7 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "donkeyops=donkeyops.cli:main",
+            "ruciobot=ruciobot.cli:main",
         ],
     },
     extras_require={
