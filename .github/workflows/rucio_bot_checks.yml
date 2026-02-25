@@ -2,7 +2,7 @@ name: RucioBot Maintenance Checks
 
 on:
   schedule:
-    - cron: '0 1 * * *'  # Run every day at 1 AM UTC
+    - cron: '0 1,13 * * *'  # Run twice daily at 1 AM and 1 PM UTC
   workflow_dispatch:      # Allow manual trigger
 
 jobs:
@@ -26,11 +26,11 @@ jobs:
           RUCIO_BOT_APP_ID: ${{ secrets.RUCIO_BOT_APP_ID }}
           RUCIO_BOT_PRIVATE_KEY: ${{ secrets.RUCIO_BOT_PRIVATE_KEY }}
         run: |
-          ruciobot --action stale --repo ${{ github.repository }}
+          ruciobot --action stale --repo rucio/rucio
 
       - name: Run Failing Tests Check
         env:
           RUCIO_BOT_APP_ID: ${{ secrets.RUCIO_BOT_APP_ID }}
           RUCIO_BOT_PRIVATE_KEY: ${{ secrets.RUCIO_BOT_PRIVATE_KEY }}
         run: |
-          ruciobot --action failing-tests --repo ${{ github.repository }}
+          ruciobot --action failing-tests --repo rucio/rucio
