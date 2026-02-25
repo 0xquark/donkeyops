@@ -1,11 +1,13 @@
 """
 Stale PR check: warn after WARN_DAYS of inactivity, close after CLOSE_DAYS more.
 """
-from datetime import datetime, timedelta, timezone
+
+from datetime import UTC, datetime, timedelta
+
 from github import Github
 from github.PullRequest import PullRequest
 
-from .base import BaseCheck, NO_BOT_LABEL, is_excluded_from_bot
+from .base import NO_BOT_LABEL, BaseCheck, is_excluded_from_bot
 
 STALE_LABEL = "stale"
 WARN_DAYS = 14
@@ -26,16 +28,17 @@ class StalePRCheck(BaseCheck):
             process_pr(pr, self.days_until_stale)
 
 
-
 # Helpers
+
 
 def process_pr(pr: PullRequest, days_until_stale: int) -> None:
     """Process a single PR to check for staleness."""
     if is_excluded_from_bot(pr):
         print(f"  [SKIP] PR #{pr.number} has '{NO_BOT_LABEL}' label. Skipping.")
         return
-    now = datetime.now(timezone.utc)
-    last_updated = pr.updated_at.replace(tzinfo=timezone.utc)
+    now = datetime.now(UTC)
+    assert pr.updated_at is not None, f"PR #{pr.number} has no updated_at timestamp"
+    last_updated = pr.updated_at.replace(tzinfo=UTC)
 
     if _is_labeled_stale(pr):
         # Already warned — close if still inactive past CLOSE_DAYS.
@@ -50,7 +53,7 @@ def process_pr(pr: PullRequest, days_until_stale: int) -> None:
 
 
 def _is_labeled_stale(pr: PullRequest) -> bool:
-    return STALE_LABEL in [l.name for l in pr.labels]
+    return STALE_LABEL in [lbl.name for lbl in pr.labels]
 
 
 def _is_awaiting_review(pr: PullRequest) -> bool:

@@ -1,26 +1,25 @@
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
 from ruciobot.checks.failing_tests import (
-    process_failing_test_pr,
+    FAILING_TESTS_CLOSE_DAYS,
     FAILING_TESTS_LABEL,
     FAILING_TESTS_WARN_DAYS,
-    FAILING_TESTS_CLOSE_DAYS,
+    process_failing_test_pr,
 )
 
 
 class TestFailingTestPRs(unittest.TestCase):
-
     def create_mock_pr(self, number, updated_delta_days, labels=[]):
         pr = MagicMock()
         pr.number = number
         pr.title = f"PR {number}"
-        pr.updated_at = datetime.now(timezone.utc) - timedelta(days=updated_delta_days)
+        pr.updated_at = datetime.now(UTC) - timedelta(days=updated_delta_days)
         label_mocks = []
-        for l in labels:
+        for lbl in labels:
             m = MagicMock()
-            m.name = l
+            m.name = lbl
             label_mocks.append(m)
         pr.labels = label_mocks
         return pr
@@ -46,7 +45,9 @@ class TestFailingTestPRs(unittest.TestCase):
 
     def test_closes_pr_with_failing_tests_after_3_days(self):
         """PR already labeled 'failing-tests' and inactive >= 3 days should be closed."""
-        pr = self.create_mock_pr(1, updated_delta_days=FAILING_TESTS_CLOSE_DAYS + 1, labels=[FAILING_TESTS_LABEL])
+        pr = self.create_mock_pr(
+            1, updated_delta_days=FAILING_TESTS_CLOSE_DAYS + 1, labels=[FAILING_TESTS_LABEL]
+        )
         repo = self.create_mock_repo(["failure"])
         process_failing_test_pr(pr, repo)
         pr.edit.assert_called_with(state="closed")
@@ -86,11 +87,13 @@ class TestFailingTestPRs(unittest.TestCase):
         process_failing_test_pr(pr, repo)
         pr.edit.assert_not_called()
 
-
     def test_skips_pr_with_no_bot_label(self):
         """PR with 'no-bot' label is completely skipped by all failing-tests checks."""
         from ruciobot.checks.base import NO_BOT_LABEL
-        pr = self.create_mock_pr(1, updated_delta_days=FAILING_TESTS_WARN_DAYS + 5, labels=[NO_BOT_LABEL])
+
+        pr = self.create_mock_pr(
+            1, updated_delta_days=FAILING_TESTS_WARN_DAYS + 5, labels=[NO_BOT_LABEL]
+        )
         repo = self.create_mock_repo(["failure"])
         process_failing_test_pr(pr, repo)
         pr.add_to_labels.assert_not_called()
