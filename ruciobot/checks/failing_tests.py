@@ -1,15 +1,17 @@
 """
 Failing-tests check: warn after WARN_DAYS of inactivity, close after CLOSE_DAYS more.
 """
-from datetime import datetime, timedelta, timezone
+
+from datetime import UTC, datetime
+
 from github import Github
 from github.PullRequest import PullRequest
 
-from .base import BaseCheck, NO_BOT_LABEL, is_excluded_from_bot
+from .base import NO_BOT_LABEL, BaseCheck, is_excluded_from_bot
 
 FAILING_TESTS_LABEL = "failing-tests"
-FAILING_TESTS_WARN_DAYS = 1    # Days of inactivity before warning
-FAILING_TESTS_CLOSE_DAYS = 3   # Days of inactivity (after warning) before closing
+FAILING_TESTS_WARN_DAYS = 1  # Days of inactivity before warning
+FAILING_TESTS_CLOSE_DAYS = 3  # Days of inactivity (after warning) before closing
 
 
 class FailingTestsCheck(BaseCheck):
@@ -25,13 +27,15 @@ class FailingTestsCheck(BaseCheck):
 
 # Helpers
 
+
 def process_failing_test_pr(pr: PullRequest, repo) -> None:
     """Process a single PR to check for failing tests and apply warn/close logic."""
     if is_excluded_from_bot(pr):
         print(f"  [SKIP] PR #{pr.number} has '{NO_BOT_LABEL}' label. Skipping.")
         return
-    now = datetime.now(timezone.utc)
-    last_updated = pr.updated_at.replace(tzinfo=timezone.utc)
+    now = datetime.now(UTC)
+    assert pr.updated_at is not None, f"PR #{pr.number} has no updated_at timestamp"
+    last_updated = pr.updated_at.replace(tzinfo=UTC)
     inactive_days = (now - last_updated).days
 
     if _is_labeled_failing_tests(pr):
@@ -55,11 +59,14 @@ def has_failing_tests(pr: PullRequest, repo) -> bool:
 
 
 def _is_labeled_failing_tests(pr: PullRequest) -> bool:
-    return FAILING_TESTS_LABEL in [l.name for l in pr.labels]
+    return FAILING_TESTS_LABEL in [lbl.name for lbl in pr.labels]
 
 
 def _warn_failing_test_pr(pr: PullRequest) -> None:
-    print(f"  [WARN] PR #{pr.number} has failing tests and has been inactive for {FAILING_TESTS_WARN_DAYS}+ day(s).")
+    print(
+        f"  [WARN] PR #{pr.number} has failing tests and has been "
+        f"inactive for {FAILING_TESTS_WARN_DAYS}+ day(s)."
+    )
     pr.create_issue_comment(
         f"This PR has failing CI checks and has been inactive for "
         f"{FAILING_TESTS_WARN_DAYS} day(s). "
@@ -70,7 +77,9 @@ def _warn_failing_test_pr(pr: PullRequest) -> None:
 
 
 def _close_failing_test_pr(pr: PullRequest) -> None:
-    print(f"  [CLOSE] PR #{pr.number} has had failing tests and been inactive for too long. Closing.")
+    print(
+        f"  [CLOSE] PR #{pr.number} has had failing tests and been inactive for too long. Closing."
+    )
     pr.create_issue_comment(
         "Closing this PR because it has had failing CI checks and has been "
         f"inactive for more than {FAILING_TESTS_CLOSE_DAYS} days. "

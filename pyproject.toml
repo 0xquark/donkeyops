@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ruciobot"
+version = "0.1.0"
+description = "Rucio GitHub Bot for PR maintenance"
+requires-python = ">=3.12"
+dependencies = [
+    "PyGithub>=2.8.1",
+    "python-dotenv>=1.2.1",
+    "requests>=2.32.5",
+    "cryptography>=46.0.0",
+    "flask>=3.1.2",
+    "gunicorn>=25.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "ruff>=0.15.2",
+    "mypy>=1.19.1",
+    "pre-commit>=4.0.0",
+]
+
+[project.scripts]
+ruciobot = "ruciobot.cli:main"
+
+[tool.uv]
+required-version = ">=0.10.5"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+# E/W = pycodestyle  F = pyflakes  I = isort  UP = pyupgrade
+select = ["E", "W", "F", "I", "UP"]
+ignore = []
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.12"
+strict = false
+ignore_missing_imports = true
