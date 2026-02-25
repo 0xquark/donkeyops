@@ -12,7 +12,7 @@ def get_app_auth(app_id: str, private_key: str) -> GithubIntegration:
     Returns a GithubIntegration object authenticated as an App.
     """
     if not app_id or not private_key:
-        raise ValueError("APP_ID and PRIVATE_KEY are required for App authentication")
+        raise ValueError("RUCIO_BOT_APP_ID and RUCIO_BOT_PRIVATE_KEY are required for App authentication")
     
     auth = AppAuth(app_id=app_id, private_key=private_key)
     return GithubIntegration(auth=auth)
@@ -62,4 +62,4 @@ def get_github_client(app_id: str = None, private_key: str = None, token: str = 
     if env_token:
         return Github(env_token)
 
-    raise ValueError("No valid credentials found (APP_ID/PRIVATE_KEY or GITHUB_TOKEN)")
+    raise ValueError("No valid credentials found (RUCIO_BOT_APP_ID/RUCIO_BOT_PRIVATE_KEY or GITHUB_TOKEN)")

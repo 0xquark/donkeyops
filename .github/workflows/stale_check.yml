@@ -23,14 +23,14 @@ jobs:
 
       - name: Run Stale Check
         env:
-          APP_ID: ${{ secrets.BOT_APP_ID }}
-          PRIVATE_KEY: ${{ secrets.BOT_PRIVATE_KEY }}
+          RUCIO_BOT_APP_ID: ${{ secrets.RUCIO_BOT_APP_ID }}
+          RUCIO_BOT_PRIVATE_KEY: ${{ secrets.RUCIO_BOT_PRIVATE_KEY }}
         run: |
           ruciobot --action stale --repo ${{ github.repository }}
 
       - name: Run Failing Tests Check
         env:
-          APP_ID: ${{ secrets.BOT_APP_ID }}
-          PRIVATE_KEY: ${{ secrets.BOT_PRIVATE_KEY }}
+          RUCIO_BOT_APP_ID: ${{ secrets.RUCIO_BOT_APP_ID }}
+          RUCIO_BOT_PRIVATE_KEY: ${{ secrets.RUCIO_BOT_PRIVATE_KEY }}
         run: |
           ruciobot --action failing-tests --repo ${{ github.repository }}

@@ -17,8 +17,8 @@ def main():
     parser.add_argument("--repo", required=True, help="Repository name (e.g. rucio/rucio)")
 
     # Arguments when registering as an app on github
-    parser.add_argument("--app-id", default=os.getenv("APP_ID"), help="GitHub App ID")
-    parser.add_argument("--private-key", default=os.getenv("PRIVATE_KEY"), help="GitHub App Private Key (or path to file)")
+    parser.add_argument("--app-id", default=os.getenv("RUCIO_BOT_APP_ID"), help="GitHub App ID")
+    parser.add_argument("--private-key", default=os.getenv("RUCIO_BOT_PRIVATE_KEY"), help="GitHub App Private Key (or path to file)")
 
     # Arguments when using a personal access token (used for testing)
     parser.add_argument("--token", default=os.getenv("GITHUB_TOKEN"), help="Personal Access Token or Action Token")
