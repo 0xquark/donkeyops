@@ -12,7 +12,13 @@ from ruciobot.checks.stale_prs import (
 
 class TestStalePRs(unittest.TestCase):
     def create_mock_pr(
-        self, number, updated_delta_days, labels=[], pending_reviewers=0, pending_teams=0
+        self,
+        number,
+        updated_delta_days,
+        labels=[],
+        pending_reviewers=0,
+        pending_teams=0,
+        approved_reviews=0,
     ):
         pr = MagicMock()
         pr.number = number
@@ -29,6 +35,13 @@ class TestStalePRs(unittest.TestCase):
         teams_requested = MagicMock()
         teams_requested.totalCount = pending_teams
         pr.get_review_requests.return_value = (users_requested, teams_requested)
+
+        reviews = []
+        for _ in range(approved_reviews):
+            r = MagicMock()
+            r.state = "APPROVED"
+            reviews.append(r)
+        pr.get_reviews.return_value = reviews
 
         return pr
 
@@ -88,6 +101,13 @@ class TestStalePRs(unittest.TestCase):
         pr.add_to_labels.assert_not_called()
         pr.create_issue_comment.assert_not_called()
         pr.edit.assert_not_called()
+
+    def test_skips_pr_with_approved_review(self):
+        """Inactive PR that already has an approved review is NOT marked stale."""
+        pr = self.create_mock_pr(1, updated_delta_days=WARN_DAYS + 5, labels=[], approved_reviews=1)
+        process_pr(pr, WARN_DAYS)
+        pr.add_to_labels.assert_not_called()
+        pr.create_issue_comment.assert_not_called()
 
 
 if __name__ == "__main__":

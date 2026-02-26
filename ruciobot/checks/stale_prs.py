@@ -48,6 +48,8 @@ def process_pr(pr: PullRequest, days_until_stale: int) -> None:
         if (now - last_updated) > timedelta(days=days_until_stale):
             if _is_awaiting_review(pr):
                 print(f"  [SKIP] PR #{pr.number} is awaiting reviewer response. Skipping.")
+            elif _is_approved(pr):
+                print(f"  [SKIP] PR #{pr.number} has an approved review. Skipping.")
             else:
                 _mark_pr_stale(pr, days_until_stale)
 
@@ -59,6 +61,11 @@ def _is_labeled_stale(pr: PullRequest) -> bool:
 def _is_awaiting_review(pr: PullRequest) -> bool:
     users_requested, teams_requested = pr.get_review_requests()
     return users_requested.totalCount > 0 or teams_requested.totalCount > 0
+
+
+def _is_approved(pr: PullRequest) -> bool:
+    """Return True if the PR has at least one approved review."""
+    return any(review.state == "APPROVED" for review in pr.get_reviews())
 
 
 def _mark_pr_stale(pr: PullRequest, days: int) -> None:
