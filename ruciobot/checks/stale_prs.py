@@ -41,8 +41,10 @@ def process_pr(pr: PullRequest, days_until_stale: int) -> None:
     last_updated = pr.updated_at.replace(tzinfo=UTC)
 
     if _is_labeled_stale(pr):
-        # Already warned — close if still inactive past CLOSE_DAYS.
-        if (now - last_updated) > timedelta(days=CLOSE_DAYS):
+        # Activity resumed — lift the stale label instead of closing.
+        if _is_awaiting_review(pr) or _is_approved(pr):
+            _clear_stale_label(pr)
+        elif (now - last_updated) > timedelta(days=CLOSE_DAYS):
             _close_stale_pr(pr)
     else:
         if (now - last_updated) > timedelta(days=days_until_stale):
@@ -66,6 +68,11 @@ def _is_awaiting_review(pr: PullRequest) -> bool:
 def _is_approved(pr: PullRequest) -> bool:
     """Return True if the PR has at least one approved review."""
     return any(review.state == "APPROVED" for review in pr.get_reviews())
+
+
+def _clear_stale_label(pr: PullRequest) -> None:
+    print(f"  [INFO] PR #{pr.number} has new activity. Removing '{STALE_LABEL}' label.")
+    pr.remove_from_labels(STALE_LABEL)
 
 
 def _mark_pr_stale(pr: PullRequest, days: int) -> None:

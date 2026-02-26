@@ -109,6 +109,30 @@ class TestStalePRs(unittest.TestCase):
         pr.add_to_labels.assert_not_called()
         pr.create_issue_comment.assert_not_called()
 
+    def test_removes_stale_label_when_reviewer_assigned_after_stale(self):
+        """Stale-labeled PR that later gets a reviewer assigned has stale label removed."""
+        pr = self.create_mock_pr(
+            1,
+            updated_delta_days=CLOSE_DAYS + 1,
+            labels=[STALE_LABEL],
+            pending_reviewers=1,
+        )
+        process_pr(pr, WARN_DAYS)
+        pr.remove_from_labels.assert_called_with(STALE_LABEL)
+        pr.edit.assert_not_called()
+
+    def test_removes_stale_label_when_approved_after_stale(self):
+        """Stale-labeled PR that later gets approved has stale label removed."""
+        pr = self.create_mock_pr(
+            1,
+            updated_delta_days=CLOSE_DAYS + 1,
+            labels=[STALE_LABEL],
+            approved_reviews=1,
+        )
+        process_pr(pr, WARN_DAYS)
+        pr.remove_from_labels.assert_called_with(STALE_LABEL)
+        pr.edit.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
