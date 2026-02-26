@@ -29,3 +29,9 @@ jobs:
           RUCIO_BOT_APP_ID: ${{ secrets.RUCIO_BOT_APP_ID }}
           RUCIO_BOT_PRIVATE_KEY: ${{ secrets.RUCIO_BOT_PRIVATE_KEY }}
         run: uv run ruciobot --action failing-tests --repo rucio/rucio
+
+      - name: Run Needs-Rebase Check
+        env:
+          RUCIO_BOT_APP_ID: ${{ secrets.RUCIO_BOT_APP_ID }}
+          RUCIO_BOT_PRIVATE_KEY: ${{ secrets.RUCIO_BOT_PRIVATE_KEY }}
+        run: uv run ruciobot --action needs-rebase --repo rucio/rucio
