@@ -39,7 +39,9 @@ def process_failing_test_pr(pr: PullRequest, repo) -> None:
     inactive_days = (now - last_updated).days
 
     if _is_labeled_failing_tests(pr):
-        if inactive_days >= FAILING_TESTS_CLOSE_DAYS:
+        if not has_failing_tests(pr, repo):
+            _clear_failing_tests_label(pr)
+        elif inactive_days >= FAILING_TESTS_CLOSE_DAYS:
             _close_failing_test_pr(pr)
     else:
         if inactive_days >= FAILING_TESTS_WARN_DAYS and has_failing_tests(pr, repo):
@@ -60,6 +62,13 @@ def has_failing_tests(pr: PullRequest, repo) -> bool:
 
 def _is_labeled_failing_tests(pr: PullRequest) -> bool:
     return FAILING_TESTS_LABEL in [lbl.name for lbl in pr.labels]
+
+
+def _clear_failing_tests_label(pr: PullRequest) -> None:
+    print(
+        f"  [INFO] PR #{pr.number} tests are now passing. Removing '{FAILING_TESTS_LABEL}' label."
+    )
+    pr.remove_from_labels(FAILING_TESTS_LABEL)
 
 
 def _warn_failing_test_pr(pr: PullRequest) -> None:
