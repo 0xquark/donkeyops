@@ -15,7 +15,7 @@ class TestNeedsRebaseCheck(unittest.TestCase):
         pr.mergeable = mergeable
 
         label_mocks = []
-        for lbl in (labels or []):
+        for lbl in labels or []:
             m = MagicMock()
             m.name = lbl
             label_mocks.append(m)

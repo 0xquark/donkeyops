@@ -64,13 +64,20 @@ def _is_awaiting_review(pr: PullRequest) -> bool:
 def _mark_pr_stale(pr: PullRequest, days: int) -> None:
     print(f"  [WARN] PR #{pr.number} is inactive for {days}+ days. Marking stale.")
     pr.create_issue_comment(
-        f"This PR has been inactive for {days} days and has no pending review requests. "
-        f"It will be closed in {CLOSE_DAYS} days if there is no further activity."
+        f"This PR has had no activity for {days} days and has no pending review requests. "
+        f"It has been marked as **stale** and will be closed in {CLOSE_DAYS} days unless "
+        f"there is new activity or a reviewer is assigned."
     )
     pr.add_to_labels(STALE_LABEL)
 
 
 def _close_stale_pr(pr: PullRequest) -> None:
     print(f"  [CLOSE] PR #{pr.number} has been stale for too long. Closing.")
-    pr.create_issue_comment("Closing this PR due to inactivity.")
+    pr.create_issue_comment(
+        "Closing this PR due to prolonged inactivity. "
+        "Feel free to reopen it if you would like to continue working on it. "
+        "If you believe this action was a mistake, please reach out to a member of the "
+        "[Rucio review team](https://rucio.github.io/documentation/component_leads) "
+        "with an explanation."
+    )
     pr.edit(state="closed")

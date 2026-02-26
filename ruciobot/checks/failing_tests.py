@@ -68,10 +68,10 @@ def _warn_failing_test_pr(pr: PullRequest) -> None:
         f"inactive for {FAILING_TESTS_WARN_DAYS}+ day(s)."
     )
     pr.create_issue_comment(
-        f"This PR has failing CI checks and has been inactive for "
+        f"This PR has failing CI checks and has had no activity for "
         f"{FAILING_TESTS_WARN_DAYS} day(s). "
-        f"It will be automatically closed in {FAILING_TESTS_CLOSE_DAYS} days if the "
-        f"tests are not fixed or there is no further activity."
+        f"It has been labeled **failing-tests** and will be closed in "
+        f"{FAILING_TESTS_CLOSE_DAYS} days unless the tests are fixed or new activity is recorded."
     )
     pr.add_to_labels(FAILING_TESTS_LABEL)
 
@@ -81,8 +81,11 @@ def _close_failing_test_pr(pr: PullRequest) -> None:
         f"  [CLOSE] PR #{pr.number} has had failing tests and been inactive for too long. Closing."
     )
     pr.create_issue_comment(
-        "Closing this PR because it has had failing CI checks and has been "
-        f"inactive for more than {FAILING_TESTS_CLOSE_DAYS} days. "
-        "Feel free to reopen once the tests are fixed."
+        f"Closing this PR because it has had failing CI checks for more than "
+        f"{FAILING_TESTS_CLOSE_DAYS} days with no activity. "
+        "Feel free to reopen it once the tests are fixed. "
+        "If you believe this action was a mistake, please reach out to a member of the "
+        "[Rucio review team](https://rucio.github.io/documentation/component_leads) "
+        "with an explanation."
     )
     pr.edit(state="closed")
