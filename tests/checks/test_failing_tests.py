@@ -53,6 +53,15 @@ class TestFailingTestPRs(unittest.TestCase):
         pr.edit.assert_called_with(state="closed")
         pr.create_issue_comment.assert_called_once()
 
+    def test_removes_label_when_tests_pass(self):
+        """PR labeled 'failing-tests' whose CI is now green should have the label removed."""
+        pr = self.create_mock_pr(1, updated_delta_days=2, labels=[FAILING_TESTS_LABEL])
+        repo = self.create_mock_repo(["success"])
+        process_failing_test_pr(pr, repo)
+        pr.remove_from_labels.assert_called_once_with(FAILING_TESTS_LABEL)
+        pr.edit.assert_not_called()
+        pr.create_issue_comment.assert_not_called()
+
     def test_ignores_recently_active_failing_pr(self):
         """PR with failing checks but inactive < 1 day should not be warned or closed."""
         pr = self.create_mock_pr(1, updated_delta_days=0, labels=[])
