@@ -1,6 +1,6 @@
 # RucioBot
 
-RucioBot is a GitHub App that automates routine pull request maintenance for the [Rucio](https://github.com/rucio/rucio) repository. It runs on a schedule and handles two tasks currently: marking inactive pull requests as stale, and closing pull requests that have had failing tests without activity for several days.
+RucioBot is a GitHub App that automates routine pull request maintenance for the [Rucio](https://github.com/rucio/rucio) repository. It runs on a schedule and currently handles three tasks: marking inactive pull requests as stale, closing pull requests that have had failing tests without activity for several days, and notifying authors of pull requests that cannot be merged due to conflicts.
 
 The bot authenticates as a GitHub App and interacts with the GitHub API through [PyGithub](https://pygithub.readthedocs.io). It inspects open pull requests, applies labels, posts comments, and closes PRs according to configurable rules.
 
@@ -10,7 +10,9 @@ The bot authenticates as a GitHub App and interacts with the GitHub API through 
 
 **Failing tests.** A pull request with failing CI checks is warned after one day of inactivity. If it remains inactive and labeled for three more days, it is closed.
 
-PRs labeled `no-bot` are excluded from both checks. More checks will be added over time. To request a new feature or report a bug, please open an issue.
+**Needs rebase.** A pull request that has merge conflicts with its target branch receives a comment asking the author to rebase, and is labeled `needs-rebase`. Once the conflicts are resolved, the label is removed automatically on the next run.
+
+PRs labeled `no-bot` are excluded from all checks. More checks will be added over time. To request a new feature or report a bug, please open an issue.
 
 ## Running the bot
 
@@ -19,6 +21,7 @@ The bot is invoked via the `ruciobot` CLI. It requires either a GitHub App crede
 ```
 ruciobot --action stale --repo rucio/rucio
 ruciobot --action failing-tests --repo rucio/rucio
+ruciobot --action needs-rebase --repo rucio/rucio
 ```
 
 Credentials can be passed as flags or set as environment variables. See `ruciobot --help` for all options.
