@@ -2,12 +2,12 @@
 Stale PR check: warn after WARN_DAYS of inactivity, close after CLOSE_DAYS more.
 """
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from github import Github
 from github.PullRequest import PullRequest
 
-from .base import NO_BOT_LABEL, BaseCheck, is_excluded_from_bot
+from .base import NO_BOT_LABEL, BaseCheck, count_business_days, is_excluded_from_bot
 
 STALE_LABEL = "stale"
 WARN_DAYS = 14
@@ -40,14 +40,16 @@ def process_pr(pr: PullRequest, days_until_stale: int) -> None:
     assert pr.updated_at is not None, f"PR #{pr.number} has no updated_at timestamp"
     last_updated = pr.updated_at.replace(tzinfo=UTC)
 
+    inactive_business_days = count_business_days(last_updated, now)
+
     if _is_labeled_stale(pr):
         # Activity resumed — lift the stale label instead of closing.
         if _is_awaiting_review(pr) or _is_approved(pr):
             _clear_stale_label(pr)
-        elif (now - last_updated) > timedelta(days=CLOSE_DAYS):
+        elif inactive_business_days >= CLOSE_DAYS:
             _close_stale_pr(pr)
     else:
-        if (now - last_updated) > timedelta(days=days_until_stale):
+        if inactive_business_days >= days_until_stale:
             if _is_awaiting_review(pr):
                 print(f"  [SKIP] PR #{pr.number} is awaiting reviewer response. Skipping.")
             elif _is_approved(pr):
@@ -76,10 +78,10 @@ def _clear_stale_label(pr: PullRequest) -> None:
 
 
 def _mark_pr_stale(pr: PullRequest, days: int) -> None:
-    print(f"  [WARN] PR #{pr.number} is inactive for {days}+ days. Marking stale.")
+    print(f"  [WARN] PR #{pr.number} is inactive for {days}+ weekdays. Marking stale.")
     pr.create_issue_comment(
-        f"This PR has had no activity for {days} days and has no pending review requests. "
-        f"It has been marked as **stale** and will be closed in {CLOSE_DAYS} days unless "
+        f"This PR has had no activity for {days} weekdays and has no pending review requests. "
+        f"It has been marked as **stale** and will be closed in {CLOSE_DAYS} weekdays unless "
         f"there is new activity or a reviewer is assigned."
     )
     pr.add_to_labels(STALE_LABEL)

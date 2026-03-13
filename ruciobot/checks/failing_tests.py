@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from github import Github
 from github.PullRequest import PullRequest
 
-from .base import NO_BOT_LABEL, BaseCheck, is_excluded_from_bot
+from .base import NO_BOT_LABEL, BaseCheck, count_business_days, is_excluded_from_bot
 
 FAILING_TESTS_LABEL = "failing-tests"
 FAILING_TESTS_WARN_DAYS = 1  # Days of inactivity before warning
@@ -36,7 +36,7 @@ def process_failing_test_pr(pr: PullRequest, repo) -> None:
     now = datetime.now(UTC)
     assert pr.updated_at is not None, f"PR #{pr.number} has no updated_at timestamp"
     last_updated = pr.updated_at.replace(tzinfo=UTC)
-    inactive_days = (now - last_updated).days
+    inactive_days = count_business_days(last_updated, now)
 
     if _is_labeled_failing_tests(pr):
         if not has_failing_tests(pr, repo):
@@ -74,13 +74,14 @@ def _clear_failing_tests_label(pr: PullRequest) -> None:
 def _warn_failing_test_pr(pr: PullRequest) -> None:
     print(
         f"  [WARN] PR #{pr.number} has failing tests and has been "
-        f"inactive for {FAILING_TESTS_WARN_DAYS}+ day(s)."
+        f"inactive for {FAILING_TESTS_WARN_DAYS}+ weekday(s)."
     )
     pr.create_issue_comment(
         f"This PR has failing CI checks and has had no activity for "
-        f"{FAILING_TESTS_WARN_DAYS} day(s). "
+        f"{FAILING_TESTS_WARN_DAYS} weekday(s). "
         f"It has been labeled **failing-tests** and will be closed in "
-        f"{FAILING_TESTS_CLOSE_DAYS} days unless the tests are fixed or new activity is recorded."
+        f"{FAILING_TESTS_CLOSE_DAYS} weekdays unless the tests are fixed "
+        f"or new activity is recorded."
     )
     pr.add_to_labels(FAILING_TESTS_LABEL)
 
@@ -91,7 +92,7 @@ def _close_failing_test_pr(pr: PullRequest) -> None:
     )
     pr.create_issue_comment(
         f"Closing this PR because it has had failing CI checks for more than "
-        f"{FAILING_TESTS_CLOSE_DAYS} days with no activity. "
+        f"{FAILING_TESTS_CLOSE_DAYS} weekdays with no activity. "
         "Feel free to reopen it once the tests are fixed. "
         "If you believe this action was a mistake, please reach out to a member of the "
         "[Rucio review team](https://rucio.github.io/documentation/component_leads) "
