@@ -6,9 +6,9 @@ The bot authenticates as a GitHub App and interacts with the GitHub API through 
 
 ## Checks
 
-**Stale PRs.** A pull request is marked stale after a configurable number of days without activity. If the PR has pending review requests, it is skipped. Stale PRs that remain inactive are eventually closed.
+**Stale PRs.** A pull request is marked stale after a configurable number of weekdays without activity. If the PR has pending review requests, it is skipped. Stale PRs that remain inactive are eventually closed.
 
-**Failing tests.** A pull request with failing CI checks is warned after one day of inactivity. If it remains inactive and labeled for three more days, it is closed.
+**Failing tests.** A pull request with failing CI checks is warned after one weekday of inactivity. If it remains inactive and labeled for three more weekdays, it is closed.
 
 **Needs rebase.** A pull request that has merge conflicts with its target branch receives a comment asking the author to rebase, and is labeled `needs-rebase`. Once the conflicts are resolved, the label is removed automatically on the next run.
 
